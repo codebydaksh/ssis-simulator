@@ -10,7 +10,7 @@ interface CanvasState {
     // View mode
     viewMode: ViewMode;
     setViewMode: (mode: ViewMode) => void;
-    
+
     // Current context (for nested data flows)
     currentDataFlowTaskId: string | null; // If viewing nested data flow, this is the parent task ID
     setCurrentDataFlowTaskId: (id: string | null) => void;
@@ -94,7 +94,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
                         nestedDataFlow: { components: [], connections: [] }
                     });
                 }
-                set({ 
+                set({
                     currentDataFlowTaskId: taskId,
                     viewMode: 'data-flow',
                     selectedComponent: null
@@ -102,7 +102,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
             }
         },
         navigateToControlFlow: () => {
-            set({ 
+            set({
                 currentDataFlowTaskId: null,
                 viewMode: 'control-flow',
                 selectedComponent: null
@@ -117,7 +117,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
 
         addComponent: (component) => {
             const { currentDataFlowTaskId, components } = get();
-            
+
             // If in nested data flow, add to nested data flow
             if (currentDataFlowTaskId) {
                 const task = components.find(c => c.id === currentDataFlowTaskId);
@@ -134,7 +134,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
                     return;
                 }
             }
-            
+
             // Otherwise add to main components
             set((state) => {
                 const newComponents = [...state.components, component];
@@ -147,7 +147,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         removeComponent: (id) => {
             const { currentDataFlowTaskId, components } = get();
             const comp = components.find(c => c.id === id);
-            
+
             // If in nested data flow, remove from nested data flow
             if (currentDataFlowTaskId) {
                 const task = components.find(c => c.id === currentDataFlowTaskId);
@@ -166,7 +166,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
                     return;
                 }
             }
-            
+
             // Otherwise remove from main components
             set((state) => {
                 const newComponents = state.components.filter((c) => c.id !== id);
@@ -196,7 +196,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
 
         addConnection: (connection) => {
             const { currentDataFlowTaskId, components } = get();
-            
+
             // If in nested data flow, add to nested data flow
             if (currentDataFlowTaskId) {
                 const task = components.find(c => c.id === currentDataFlowTaskId);
@@ -218,7 +218,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
                     return;
                 }
             }
-            
+
             // Otherwise add to main connections
             set((state) => {
                 const exists = state.connections.some(
@@ -233,7 +233,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
 
         removeConnection: (id) => {
             const { currentDataFlowTaskId, components } = get();
-            
+
             // If in nested data flow, remove from nested data flow
             if (currentDataFlowTaskId) {
                 const task = components.find(c => c.id === currentDataFlowTaskId);
@@ -250,7 +250,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
                     return;
                 }
             }
-            
+
             // Otherwise remove from main connections
             set((state) => ({
                 connections: state.connections.filter((c) => c.id !== id),
@@ -279,7 +279,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
 
             const newId = uuidv4();
             const offset = 50;
-            
+
             const newComponent: SSISComponent = {
                 ...clipboard,
                 id: newId,
@@ -411,7 +411,16 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         },
 
         loadTemplate: (components, connections) => {
-            set({ components, connections, errors: [], selectedComponent: null });
+            set({
+                components,
+                connections,
+                errors: [],
+                selectedComponent: null,
+                // Reset view mode to show the loaded template
+                viewMode: 'data-flow',
+                // Reset nested data flow context
+                currentDataFlowTaskId: null
+            });
             historyManager.clear();
             saveHistory('Loaded template');
             get().validateAll();
@@ -435,7 +444,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         // Helper getters - return components/connections for current view
         getCurrentComponents: () => {
             const { viewMode, currentDataFlowTaskId, components } = get();
-            
+
             // If viewing nested data flow, return nested components
             if (currentDataFlowTaskId) {
                 const task = components.find(c => c.id === currentDataFlowTaskId);
@@ -444,23 +453,23 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
                 }
                 return [];
             }
-            
+
             // If in control flow view, return only control flow tasks
             if (viewMode === 'control-flow') {
                 return components.filter(c => c.type === 'control-flow-task');
             }
-            
+
             // Default: data flow view - return data flow components
-            return components.filter(c => 
-                c.type === 'source' || 
-                c.type === 'transformation' || 
+            return components.filter(c =>
+                c.type === 'source' ||
+                c.type === 'transformation' ||
                 c.type === 'destination'
             );
         },
 
         getCurrentConnections: () => {
             const { viewMode, currentDataFlowTaskId, connections, components } = get();
-            
+
             // If viewing nested data flow, return nested connections
             if (currentDataFlowTaskId) {
                 const task = components.find(c => c.id === currentDataFlowTaskId);
@@ -469,28 +478,28 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
                 }
                 return [];
             }
-            
+
             // If in control flow view, return only control flow connections
             if (viewMode === 'control-flow') {
                 const controlFlowComponentIds = new Set(
                     components.filter(c => c.type === 'control-flow-task').map(c => c.id)
                 );
-                return connections.filter(c => 
-                    controlFlowComponentIds.has(c.source) && 
+                return connections.filter(c =>
+                    controlFlowComponentIds.has(c.source) &&
                     controlFlowComponentIds.has(c.target)
                 );
             }
-            
+
             // Default: data flow view - return data flow connections
             const dataFlowComponentIds = new Set(
-                components.filter(c => 
-                    c.type === 'source' || 
-                    c.type === 'transformation' || 
+                components.filter(c =>
+                    c.type === 'source' ||
+                    c.type === 'transformation' ||
                     c.type === 'destination'
                 ).map(c => c.id)
             );
-            return connections.filter(c => 
-                dataFlowComponentIds.has(c.source) && 
+            return connections.filter(c =>
+                dataFlowComponentIds.has(c.source) &&
                 dataFlowComponentIds.has(c.target)
             );
         }
