@@ -440,18 +440,7 @@ export function validateComponent(
         });
     }
 
-    // NEW RULE 25: Recommend error output configuration
-    const supportsErrorOutput = ['DataConversion', 'Lookup', 'OLEDBDestination', 'FlatFileDestination'];
-    if (supportsErrorOutput.includes(component.category) && outputs.length === 1) {
-        results.push({
-            connectionId: component.id,
-            isValid: true,
-            severity: 'info',
-            message: `${component.category} supports error output redirection. Consider adding error handling path for robustness.`,
-            suggestion: 'Configure error output to handle failures gracefully',
-            affectedComponents: [component.id]
-        });
-    }
+    // Rule 25 removed - handled by Rule 40 in validateGlobalBestPractices to avoid duplicates
 
     // NEW RULE 26: Performance - Sort on large dataset without pre-filtering
     if (component.category === 'Sort') {
@@ -539,19 +528,7 @@ export function validateComponent(
         }
     }
 
-    // NEW RULE 31: Best Practice - No logging/auditing components
-    const hasRowCount = components.some(c => c.category === 'RowCount');
-    if (!hasRowCount && components.length > 3) {
-        // Only warn if pipeline is substantial
-        results.push({
-            connectionId: component.id,
-            isValid: true,
-            severity: 'info',
-            message: 'Consider adding Row Count component for auditing and tracking record counts through the pipeline.',
-            suggestion: 'Add Row Count component to track data flow metrics',
-            affectedComponents: [component.id]
-        });
-    }
+    // Rule 31 moved to validateGlobalBestPractices to avoid duplicates
 
     // NEW RULE 32: Best Practice - Hardcoded connection strings (check properties)
     if ((component.type === 'source' || component.type === 'destination') && 
@@ -567,44 +544,9 @@ export function validateComponent(
         });
     }
 
-    // NEW RULE 33: Best Practice - Missing data validation
-    const hasValidation = components.some(c => 
-        c.category === 'ConditionalSplit' || 
-        c.category === 'DerivedColumn' && c.properties?.expression?.includes('ISNULL') ||
-        c.category === 'Lookup'
-    );
-    if (!hasValidation && components.length > 2) {
-        results.push({
-            connectionId: component.id,
-            isValid: true,
-            severity: 'info',
-            message: 'Consider adding data validation steps (Conditional Split, Lookup, or Derived Column with validation logic) to ensure data quality.',
-            suggestion: 'Add validation transformations to check data quality before loading',
-            affectedComponents: [component.id]
-        });
-    }
+    // Rule 33 moved to validateGlobalBestPractices to avoid duplicates
 
-    // NEW RULE 34: Best Practice - No incremental load strategy
-    const hasIncrementalPattern = components.some(c => 
-        c.category === 'Lookup' && c.referenceInput?.includes('last-load') ||
-        components.some(comp => comp.properties?.incrementalLoad === true)
-    );
-    if (!hasIncrementalPattern && components.length > 2) {
-        const hasDateFilter = components.some(c => 
-            c.properties?.query?.includes('WHERE') && 
-            (c.properties.query.includes('Date') || c.properties.query.includes('Modified'))
-        );
-        if (!hasDateFilter) {
-            results.push({
-                connectionId: component.id,
-                isValid: true,
-                severity: 'info',
-                message: 'For large datasets, consider implementing incremental load strategy using date filters or change detection.',
-                suggestion: 'Add date-based filtering or CDC pattern for incremental loads',
-                affectedComponents: [component.id]
-            });
-        }
-    }
+    // Rule 34 moved to validateGlobalBestPractices to avoid duplicates
 
     // NEW RULE 35: Data Quality - Potential null value issues
     if (component.category === 'DerivedColumn' && component.properties?.expression) {
@@ -636,46 +578,9 @@ export function validateComponent(
         });
     }
 
-    // NEW RULE 37: Data Quality - Missing data cleansing steps
-    const hasCleansing = components.some(c => 
-        c.category === 'DerivedColumn' && (
-            c.properties?.expression?.toLowerCase().includes('trim') ||
-            c.properties?.expression?.toLowerCase().includes('ltrim') ||
-            c.properties?.expression?.toLowerCase().includes('rtrim') ||
-            c.properties?.expression?.toLowerCase().includes('upper') ||
-            c.properties?.expression?.toLowerCase().includes('lower') ||
-            c.properties?.expression?.toLowerCase().includes('replace')
-        )
-    );
-    if (!hasCleansing && components.some(c => c.type === 'source' && c.category === 'FlatFileSource')) {
-        results.push({
-            connectionId: component.id,
-            isValid: true,
-            severity: 'info',
-            message: 'Flat File sources may contain inconsistent data. Consider adding data cleansing steps (TRIM, UPPER, LOWER) in Derived Column.',
-            suggestion: 'Add Derived Column with TRIM, UPPER, or data standardization expressions',
-            affectedComponents: [component.id]
-        });
-    }
+    // Rule 37 moved to validateGlobalBestPractices to avoid duplicates
 
-    // NEW RULE 38: Data Quality - No duplicate detection
-    const hasDeduplication = components.some(c => 
-        c.category === 'Sort' && 
-        components.some(comp => 
-            comp.category === 'Aggregate' && 
-            connections.some(conn => conn.source === c.id && conn.target === comp.id)
-        )
-    );
-    if (!hasDeduplication && components.length > 2) {
-        results.push({
-            connectionId: component.id,
-            isValid: true,
-            severity: 'info',
-            message: 'Consider adding duplicate detection logic (Sort + Aggregate) if source data may contain duplicates.',
-            suggestion: 'Add Sort followed by Aggregate to remove duplicates based on business key',
-            affectedComponents: [component.id]
-        });
-    }
+    // Rule 38 moved to validateGlobalBestPractices to avoid duplicates
 
     // NEW RULE 39: Data Quality - Date format inconsistencies
     if (component.category === 'DerivedColumn' && component.properties?.expression) {
@@ -692,20 +597,7 @@ export function validateComponent(
         }
     }
 
-    // NEW RULE 40: Best Practice - Missing error output configuration (enhanced)
-    if (supportsErrorOutput.includes(component.category)) {
-        const hasErrorOutput = outputs.length > 1; // Assuming second output is error output
-        if (!hasErrorOutput) {
-            results.push({
-                connectionId: component.id,
-                isValid: true,
-                severity: 'warning',
-                message: `Missing error output configuration for ${component.category}. Configure error output to handle data quality issues and connection failures gracefully.`,
-                suggestion: 'Configure error output path to log or handle failed rows separately',
-                affectedComponents: [component.id]
-            });
-        }
-    }
+    // Rule 40 moved to validateGlobalBestPractices to avoid duplicates
 
     return results;
 }
@@ -734,6 +626,147 @@ function checkPathToDestination(
     return false;
 }
 
+// Global best practices validation - runs once per validation cycle
+function validateGlobalBestPractices(
+    components: SSISComponent[],
+    connections: Connection[]
+): ValidationResult[] {
+    const results: ValidationResult[] = [];
+    
+    // Filter to only data flow components (exclude control flow tasks)
+    const dataFlowComponents = components.filter(c => 
+        c.type === 'source' || 
+        c.type === 'transformation' || 
+        c.type === 'destination'
+    );
+    
+    // Don't show suggestions for empty canvas or very small pipelines
+    if (dataFlowComponents.length < 3) {
+        return results;
+    }
+
+    // RULE 31: Best Practice - No logging/auditing components
+    const hasRowCount = dataFlowComponents.some(c => c.category === 'RowCount');
+    if (!hasRowCount) {
+        results.push({
+            connectionId: 'global-rule-31',
+            isValid: true,
+            severity: 'info',
+            message: 'Consider adding Row Count component for auditing and tracking record counts through the pipeline.',
+            suggestion: 'Add Row Count component to track data flow metrics',
+            affectedComponents: []
+        });
+    }
+
+    // RULE 33: Best Practice - Missing data validation
+    const hasValidation = dataFlowComponents.some(c => 
+        c.category === 'ConditionalSplit' || 
+        (c.category === 'DerivedColumn' && c.properties?.expression?.includes('ISNULL')) ||
+        c.category === 'Lookup'
+    );
+    if (!hasValidation) {
+        results.push({
+            connectionId: 'global-rule-33',
+            isValid: true,
+            severity: 'info',
+            message: 'Consider adding data validation steps (Conditional Split, Lookup, or Derived Column with validation logic) to ensure data quality.',
+            suggestion: 'Add validation transformations to check data quality before loading',
+            affectedComponents: []
+        });
+    }
+
+    // RULE 34: Best Practice - No incremental load strategy
+    const hasIncrementalPattern = dataFlowComponents.some(c => 
+        (c.category === 'Lookup' && c.referenceInput?.includes('last-load')) ||
+        c.properties?.incrementalLoad === true
+    );
+    if (!hasIncrementalPattern) {
+        const hasDateFilter = dataFlowComponents.some(c => 
+            c.properties?.query?.includes('WHERE') && 
+            (c.properties.query.includes('Date') || c.properties.query.includes('Modified'))
+        );
+        if (!hasDateFilter) {
+            results.push({
+                connectionId: 'global-rule-34',
+                isValid: true,
+                severity: 'info',
+                message: 'For large datasets, consider implementing incremental load strategy using date filters or change detection.',
+                suggestion: 'Add date-based filtering or CDC pattern for incremental loads',
+                affectedComponents: []
+            });
+        }
+    }
+
+    // RULE 37: Data Quality - Missing data cleansing steps
+    const hasCleansing = dataFlowComponents.some(c => 
+        c.category === 'DerivedColumn' && (
+            c.properties?.expression?.toLowerCase().includes('trim') ||
+            c.properties?.expression?.toLowerCase().includes('ltrim') ||
+            c.properties?.expression?.toLowerCase().includes('rtrim') ||
+            c.properties?.expression?.toLowerCase().includes('upper') ||
+            c.properties?.expression?.toLowerCase().includes('lower') ||
+            c.properties?.expression?.toLowerCase().includes('replace')
+        )
+    );
+    if (!hasCleansing && dataFlowComponents.some(c => c.type === 'source' && c.category === 'FlatFileSource')) {
+        results.push({
+            connectionId: 'global-rule-37',
+            isValid: true,
+            severity: 'info',
+            message: 'Flat File sources may contain inconsistent data. Consider adding data cleansing steps (TRIM, UPPER, LOWER) in Derived Column.',
+            suggestion: 'Add Derived Column with TRIM, UPPER, or data standardization expressions',
+            affectedComponents: []
+        });
+    }
+
+    // RULE 38: Data Quality - No duplicate detection
+    const hasDeduplication = dataFlowComponents.some(c => 
+        c.category === 'Sort' && 
+        dataFlowComponents.some(comp => 
+            comp.category === 'Aggregate' && 
+            connections.some(conn => conn.source === c.id && conn.target === comp.id)
+        )
+    );
+    if (!hasDeduplication) {
+        results.push({
+            connectionId: 'global-rule-38',
+            isValid: true,
+            severity: 'info',
+            message: 'Consider adding duplicate detection logic (Sort + Aggregate) if source data may contain duplicates.',
+            suggestion: 'Add Sort followed by Aggregate to remove duplicates based on business key',
+            affectedComponents: []
+        });
+    }
+
+    // RULE 40: Best Practice - Missing error output configuration (only show once, not per component)
+    const supportsErrorOutput = ['Lookup', 'OLEDBSource', 'OLEDBDestination', 'FlatFileSource', 'FlatFileDestination'];
+    const componentsNeedingErrorOutput = dataFlowComponents.filter(c => 
+        supportsErrorOutput.includes(c.category)
+    );
+    
+    if (componentsNeedingErrorOutput.length > 0) {
+        const componentsWithoutErrorOutput = componentsNeedingErrorOutput.filter(comp => {
+            const outputs = connections.filter(c => c.source === comp.id);
+            return outputs.length <= 1; // No error output configured
+        });
+        
+        if (componentsWithoutErrorOutput.length > 0) {
+            // Only show one warning, not one per component
+            const firstComponent = componentsWithoutErrorOutput[0];
+            results.push({
+                connectionId: 'global-rule-40',
+                isValid: true,
+                severity: 'warning',
+                message: `Some components (${componentsWithoutErrorOutput.length} total) support error output but it's not configured. Configure error output to handle data quality issues and connection failures gracefully.`,
+                suggestion: 'Configure error output path to log or handle failed rows separately',
+                affectedComponents: componentsWithoutErrorOutput.map(c => c.id)
+            });
+        }
+    }
+
+    return results;
+}
+
 export function validateGraph(
     components: SSISComponent[],
     connections: Connection[]
@@ -753,6 +786,10 @@ export function validateGraph(
         const compResults = validateComponent(comp, components, connections);
         allResults = [...allResults, ...compResults];
     });
+
+    // Add global best practices (only once, not per component)
+    const globalResults = validateGlobalBestPractices(components, connections);
+    allResults = [...allResults, ...globalResults];
 
     return allResults;
 }
