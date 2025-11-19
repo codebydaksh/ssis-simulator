@@ -433,37 +433,7 @@ export function validateComponent(
 
     // Rule 25 removed - handled by Rule 40 in validateGlobalBestPractices to avoid duplicates
 
-    // NEW RULE 26: Performance - Sort optimization (consolidated check)
-    if (component.category === 'Sort') {
-        const hasUpstreamFilter = inputs.some(conn => {
-            const source = getComponent(conn.source, components);
-            return source && source.category === 'ConditionalSplit';
-        });
-        
-        // Only show one comprehensive message per Sort component
-        if (inputs.length > 0) {
-            if (!hasUpstreamFilter) {
-                results.push({
-                    connectionId: component.id,
-                    isValid: true,
-                    severity: 'warning',
-                    message: 'Sort on large dataset without pre-filtering. Consider filtering data before sorting to reduce memory usage.',
-                    suggestion: 'Add Conditional Split or filter in source query before Sort',
-                    affectedComponents: [component.id]
-                });
-            } else {
-                // If filtered, just show memory warning
-                results.push({
-                    connectionId: component.id,
-                    isValid: true,
-                    severity: 'info',
-                    message: 'Sort operations are memory-intensive. Monitor buffer memory usage, especially with large datasets.',
-                    suggestion: 'Consider increasing buffer memory or processing data in smaller batches',
-                    affectedComponents: [component.id]
-                });
-            }
-        }
-    }
+    // Rule 26 moved to validateGlobalBestPractices to consolidate Sort warnings
 
     // NEW RULE 27: Performance - Multiple lookups in sequence
     if (component.category === 'Lookup') {
@@ -517,21 +487,7 @@ export function validateComponent(
         }
     }
 
-    // NEW RULE 30: Performance - Memory-intensive operations warning (exclude Sort, handled by Rule 26)
-    const memoryIntensiveOps = ['Aggregate', 'MergeJoin'];
-    if (memoryIntensiveOps.includes(component.category)) {
-        const hasMultipleUpstream = inputs.length > 1;
-        if (hasMultipleUpstream) {
-            results.push({
-                connectionId: component.id,
-                isValid: true,
-                severity: 'warning',
-                message: `${component.category} is memory-intensive. Monitor buffer memory usage, especially with large datasets.`,
-                suggestion: 'Consider increasing buffer memory or processing data in smaller batches',
-                affectedComponents: [component.id]
-            });
-        }
-    }
+    // Rule 30 moved to validateGlobalBestPractices to consolidate memory warnings
 
     // Rule 31 moved to validateGlobalBestPractices to avoid duplicates
 
@@ -741,6 +697,54 @@ function validateGlobalBestPractices(
             suggestion: 'Add Sort followed by Aggregate to remove duplicates based on business key',
             affectedComponents: []
         });
+    }
+
+    // RULE 26: Performance - Sort optimization (consolidated)
+    const sortComponents = dataFlowComponents.filter(c => c.category === 'Sort');
+    if (sortComponents.length > 0) {
+        const sortsWithoutFilter = sortComponents.filter(sortComp => {
+            const sortInputs = connections.filter(c => c.target === sortComp.id);
+            const hasUpstreamFilter = sortInputs.some(conn => {
+                const source = getComponent(conn.source, dataFlowComponents);
+                return source && source.category === 'ConditionalSplit';
+            });
+            return !hasUpstreamFilter && sortInputs.length > 0;
+        });
+        
+        if (sortsWithoutFilter.length > 0) {
+            results.push({
+                connectionId: 'global-rule-26',
+                isValid: true,
+                severity: 'warning',
+                message: `Some Sort components (${sortsWithoutFilter.length} total) are operating on large datasets without pre-filtering. Consider filtering data before sorting to reduce memory usage.`,
+                suggestion: 'Add Conditional Split or filter in source query before Sort',
+                affectedComponents: sortsWithoutFilter.map(c => c.id)
+            });
+        }
+    }
+
+    // RULE 30: Performance - Memory-intensive operations (consolidated)
+    const memoryIntensiveOps = ['Aggregate', 'MergeJoin'];
+    const memoryIntensiveComponents = dataFlowComponents.filter(c => 
+        memoryIntensiveOps.includes(c.category)
+    );
+    
+    if (memoryIntensiveComponents.length > 0) {
+        const componentsWithMultipleInputs = memoryIntensiveComponents.filter(comp => {
+            const compInputs = connections.filter(c => c.target === comp.id);
+            return compInputs.length > 1;
+        });
+        
+        if (componentsWithMultipleInputs.length > 0) {
+            results.push({
+                connectionId: 'global-rule-30',
+                isValid: true,
+                severity: 'warning',
+                message: `Some components (${componentsWithMultipleInputs.length} total: ${componentsWithMultipleInputs.map(c => c.category).join(', ')}) are memory-intensive. Monitor buffer memory usage, especially with large datasets.`,
+                suggestion: 'Consider increasing buffer memory or processing data in smaller batches',
+                affectedComponents: componentsWithMultipleInputs.map(c => c.id)
+            });
+        }
     }
 
     // RULE 40: Best Practice - Missing error output configuration (only show once, not per component)
