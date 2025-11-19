@@ -57,10 +57,13 @@ const CanvasContent = () => {
         selectComponent,
         navigateToDataFlow,
         viewMode,
+        components,
+        connections,
+        currentDataFlowTaskId,
     } = useCanvasStore();
 
-    const currentComponents = useMemo(() => getCurrentComponents(), [getCurrentComponents]);
-    const currentConnections = useMemo(() => getCurrentConnections(), [getCurrentConnections]);
+    const currentComponents = useMemo(() => getCurrentComponents(), [getCurrentComponents, components, viewMode, currentDataFlowTaskId]);
+    const currentConnections = useMemo(() => getCurrentConnections(), [getCurrentConnections, connections, viewMode, currentDataFlowTaskId]);
 
     const highlights = useMemo(() => {
         if (!selectedComponent) return { upstream: [], downstream: [] };

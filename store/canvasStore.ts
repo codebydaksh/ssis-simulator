@@ -393,14 +393,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         loadFromStorage: () => {
             const data = loadFromLocalStorage();
             if (data) {
-                console.log('[DEBUG] Loading from localStorage:', {
+                console.log('[DEBUG] Loading from localStorage:', JSON.stringify({
                     componentCount: data.components.length,
                     componentTypes: data.components.map((c: SSISComponent) => ({
                         name: c.name,
                         type: c.type,
                         category: c.category
                     }))
-                });
+                }, null, 2));
 
                 const validTypes = ['source', 'transformation', 'destination', 'control-flow-task'];
                 const invalidComponents = data.components.filter((c: SSISComponent) => !validTypes.includes(c.type));
@@ -513,14 +513,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
                 c.type === 'transformation' ||
                 c.type === 'destination'
             );
-            console.log('[DEBUG] Data flow filter results:', {
+            console.log('[DEBUG] Data flow filter results:', JSON.stringify({
                 totalComponents: components.length,
                 dataFlowComponents: dataFlow.length,
                 allComponentTypes: components.map(c => ({ name: c.name, type: c.type })),
                 dataFlowNames: dataFlow.map(c => c.name),
                 rejectedComponents: components.filter(c => !['source', 'transformation', 'destination'].includes(c.type))
                     .map(c => ({ name: c.name, type: c.type }))
-            });
+            }, null, 2));
             return dataFlow;
         },
 
