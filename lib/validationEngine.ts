@@ -385,16 +385,7 @@ export function validateComponent(
         });
     }
 
-    // NEW RULE 20: Performance warning for Sort on large datasets
-    if (component.category === 'Sort') {
-        results.push({
-            connectionId: component.id,
-            isValid: true,
-            severity: 'info',
-            message: 'Sort operations are memory-intensive. For large datasets, ensure adequate buffer memory or consider pre-sorted sources.',
-            affectedComponents: [component.id]
-        });
-    }
+    // Rule 20 removed - consolidated with Rules 26 and 30 to avoid duplicates
 
     // NEW RULE 21: Data Conversion should specify target types
     if (component.category === 'DataConversion' && outputs.length > 0) {
@@ -442,21 +433,35 @@ export function validateComponent(
 
     // Rule 25 removed - handled by Rule 40 in validateGlobalBestPractices to avoid duplicates
 
-    // NEW RULE 26: Performance - Sort on large dataset without pre-filtering
+    // NEW RULE 26: Performance - Sort optimization (consolidated check)
     if (component.category === 'Sort') {
         const hasUpstreamFilter = inputs.some(conn => {
             const source = getComponent(conn.source, components);
             return source && source.category === 'ConditionalSplit';
         });
-        if (!hasUpstreamFilter && inputs.length > 0) {
-            results.push({
-                connectionId: component.id,
-                isValid: true,
-                severity: 'warning',
-                message: 'Sort on large dataset without pre-filtering. Consider filtering data before sorting to reduce memory usage.',
-                suggestion: 'Add Conditional Split or filter in source query before Sort',
-                affectedComponents: [component.id]
-            });
+        
+        // Only show one comprehensive message per Sort component
+        if (inputs.length > 0) {
+            if (!hasUpstreamFilter) {
+                results.push({
+                    connectionId: component.id,
+                    isValid: true,
+                    severity: 'warning',
+                    message: 'Sort on large dataset without pre-filtering. Consider filtering data before sorting to reduce memory usage.',
+                    suggestion: 'Add Conditional Split or filter in source query before Sort',
+                    affectedComponents: [component.id]
+                });
+            } else {
+                // If filtered, just show memory warning
+                results.push({
+                    connectionId: component.id,
+                    isValid: true,
+                    severity: 'info',
+                    message: 'Sort operations are memory-intensive. Monitor buffer memory usage, especially with large datasets.',
+                    suggestion: 'Consider increasing buffer memory or processing data in smaller batches',
+                    affectedComponents: [component.id]
+                });
+            }
         }
     }
 
@@ -512,11 +517,11 @@ export function validateComponent(
         }
     }
 
-    // NEW RULE 30: Performance - Memory-intensive operations warning
-    const memoryIntensiveOps = ['Sort', 'Aggregate', 'MergeJoin'];
+    // NEW RULE 30: Performance - Memory-intensive operations warning (exclude Sort, handled by Rule 26)
+    const memoryIntensiveOps = ['Aggregate', 'MergeJoin'];
     if (memoryIntensiveOps.includes(component.category)) {
         const hasMultipleUpstream = inputs.length > 1;
-        if (hasMultipleUpstream || component.category === 'Sort') {
+        if (hasMultipleUpstream) {
             results.push({
                 connectionId: component.id,
                 isValid: true,
