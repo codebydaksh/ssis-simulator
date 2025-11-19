@@ -7,18 +7,20 @@ import { Info, XCircle, Save as SaveIcon } from 'lucide-react';
 
 export default function PropertiesPanel() {
     const { selectedComponent, components, updateComponent } = useCanvasStore();
-    const [localProperties, setLocalProperties] = useState<Record<string, any>>({});
+    const [localProperties, setLocalProperties] = useState<Record<string, string>>({});
     const [hasChanges, setHasChanges] = useState(false);
 
     const component = selectedComponent
         ? components.find(c => c.id === selectedComponent)
         : null;
 
+
     useEffect(() => {
         if (component) {
-            setLocalProperties(component.properties || {});
+            setLocalProperties((component.properties || {}) as Record<string, string>);
             setHasChanges(false);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [component?.id]);
 
     if (!component) {
@@ -104,7 +106,7 @@ export default function PropertiesPanel() {
     function renderEditableProperties() {
         if (!component) return null;
 
-        const updateProperty = (key: string, value: any) => {
+        const updateProperty = (key: string, value: string) => {
             setLocalProperties(prev => ({ ...prev, [key]: value }));
             setHasChanges(true);
         };

@@ -12,7 +12,14 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-    const [theme, setTheme] = useState<Theme>('light');
+    const [theme, setTheme] = useState<Theme>(() => {
+        if (typeof window !== 'undefined') {
+            const savedTheme = localStorage.getItem('theme') as Theme | null;
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            return savedTheme || (prefersDark ? 'dark' : 'light');
+        }
+        return 'light';
+    });
 
     const applyTheme = (newTheme: Theme) => {
         if (typeof document !== 'undefined') {
@@ -26,13 +33,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     };
 
     useEffect(() => {
-        const savedTheme = localStorage.getItem('theme') as Theme | null;
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        
-        const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light');
-        setTheme(initialTheme);
-        applyTheme(initialTheme);
-    }, []);
+        applyTheme(theme);
+    }, [theme]);
 
     const toggleTheme = () => {
         const newTheme = theme === 'light' ? 'dark' : 'light';
@@ -57,7 +59,7 @@ export function useTheme() {
         // Return default values during SSR or when context is not available
         return {
             theme: 'light' as Theme,
-            toggleTheme: () => {}
+            toggleTheme: () => { }
         };
     }
     return context;

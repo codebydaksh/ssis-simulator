@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useCanvasStore } from '@/store/canvasStore';
-import { generatePipelineDataPreview, ComponentDataPreview } from '@/lib/dataGenerator';
+import { generatePipelineDataPreview } from '@/lib/dataGenerator';
 import { X, Eye, ChevronRight } from 'lucide-react';
 
 interface DataPreviewModalProps {
@@ -25,11 +25,6 @@ export default function DataPreviewModal({ isOpen, onClose }: DataPreviewModalPr
     }, [selectedComponentId, dataPreviews]);
 
     if (!isOpen) return null;
-
-    const getComponentName = (componentId: string) => {
-        const comp = components.find(c => c.id === componentId);
-        return comp?.name || 'Unknown';
-    };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -56,17 +51,15 @@ export default function DataPreviewModal({ isOpen, onClose }: DataPreviewModalPr
                             </h3>
                             <div className="space-y-1">
                                 {dataPreviews.map((preview) => {
-                                    const comp = components.find(c => c.id === preview.componentId);
                                     const isSelected = selectedComponentId === preview.componentId;
                                     return (
                                         <button
                                             key={preview.componentId}
                                             onClick={() => setSelectedComponentId(preview.componentId)}
-                                            className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                                                isSelected
-                                                    ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-900 dark:text-indigo-100'
-                                                    : 'hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
-                                            }`}
+                                            className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${isSelected
+                                                ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-900 dark:text-indigo-100'
+                                                : 'hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
+                                                }`}
                                         >
                                             <div className="flex items-center justify-between">
                                                 <span className="font-medium truncate">{preview.componentName}</span>

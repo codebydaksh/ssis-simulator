@@ -1,21 +1,19 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useCanvasStore } from '@/store/canvasStore';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { analyzeAndSuggest, OptimizationSuggestion, getTemplateReference } from '@/lib/optimizationSuggestions';
 import { Lightbulb, X, AlertTriangle, Info, Zap, CheckCircle2 } from 'lucide-react';
 
 export default function SuggestionsPanel() {
     const { components, connections } = useCanvasStore();
-    const [suggestions, setSuggestions] = useState<OptimizationSuggestion[]>([]);
     const [isOpen, setIsOpen] = useState(false);
     const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
 
-    useEffect(() => {
-        // Re-analyze when components or connections change
+    const suggestions = useMemo(() => {
         const allSuggestions = analyzeAndSuggest(components, connections);
-        const activeSuggestions = allSuggestions.filter(s => !dismissedIds.has(s.id));
-        setSuggestions(activeSuggestions);
+        return allSuggestions.filter(s => !dismissedIds.has(s.id));
     }, [components, connections, dismissedIds]);
 
     const handleDismiss = (id: string) => {

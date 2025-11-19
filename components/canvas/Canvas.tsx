@@ -57,7 +57,6 @@ const CanvasContent = () => {
         selectComponent,
         navigateToDataFlow,
         viewMode,
-        currentDataFlowTaskId,
     } = useCanvasStore();
 
     const currentComponents = useMemo(() => getCurrentComponents(), [getCurrentComponents]);
@@ -214,9 +213,9 @@ const CanvasContent = () => {
                 snapToGrid
                 className={viewMode === 'control-flow' ? 'bg-blue-50' : 'bg-gray-50'}
             >
-                <Background 
-                    color={viewMode === 'control-flow' ? '#B0D4FF' : '#E0E0E0'} 
-                    gap={20} 
+                <Background
+                    color={viewMode === 'control-flow' ? '#B0D4FF' : '#E0E0E0'}
+                    gap={20}
                 />
                 <Controls />
                 <MiniMap />

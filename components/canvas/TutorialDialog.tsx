@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Tutorial, TutorialStep } from '@/lib/tutorials';
 import { X, ChevronRight, ChevronLeft, SkipForward, CheckCircle } from 'lucide-react';
 
@@ -13,15 +13,19 @@ interface TutorialDialogProps {
 
 export default function TutorialDialog({ tutorial, isOpen, onClose, onComplete }: TutorialDialogProps) {
     const [currentStepIndex, setCurrentStepIndex] = useState(0);
-    const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
+    const prevTutorialIdRef = React.useRef<string | null>(null);
 
-    useEffect(() => {
-        if (tutorial && isOpen) {
-            // Reset tutorial state when opening
-            setCurrentStepIndex(() => 0);
-            setCompletedSteps(() => new Set());
+    // Reset state when tutorial changes or when modal opens with a new tutorial
+    React.useEffect(() => {
+        const currentTutorialId = tutorial?.id || null;
+        if (isOpen && currentTutorialId !== prevTutorialIdRef.current) {
+            prevTutorialIdRef.current = currentTutorialId;
+            // Schedule state updates to run after the effect completes
+            Promise.resolve().then(() => {
+                setCurrentStepIndex(0);
+            });
         }
-    }, [tutorial, isOpen]);
+    }, [tutorial?.id, isOpen]);
 
     if (!isOpen || !tutorial) return null;
 
@@ -34,11 +38,7 @@ export default function TutorialDialog({ tutorial, isOpen, onClose, onComplete }
         if (isLastStep) {
             onComplete();
         } else {
-            setCurrentStepIndex(prev => {
-                const next = prev + 1;
-                setCompletedSteps(prevSet => new Set([...prevSet, prev]));
-                return next;
-            });
+            setCurrentStepIndex(prev => prev + 1);
         }
     };
 
@@ -126,13 +126,12 @@ export default function TutorialDialog({ tutorial, isOpen, onClose, onComplete }
                         {tutorial.steps.map((step, idx) => (
                             <div
                                 key={step.id}
-                                className={`flex-1 h-1 rounded ${
-                                    idx < currentStepIndex
-                                        ? 'bg-green-500'
-                                        : idx === currentStepIndex
+                                className={`flex-1 h-1 rounded ${idx < currentStepIndex
+                                    ? 'bg-green-500'
+                                    : idx === currentStepIndex
                                         ? 'bg-indigo-600'
                                         : 'bg-gray-300 dark:bg-gray-600'
-                                }`}
+                                    }`}
                             />
                         ))}
                     </div>
@@ -156,11 +155,10 @@ export default function TutorialDialog({ tutorial, isOpen, onClose, onComplete }
                         <button
                             onClick={handlePrevious}
                             disabled={isFirstStep}
-                            className={`flex items-center space-x-1 px-4 py-2 rounded-md text-sm transition-colors ${
-                                isFirstStep
-                                    ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed'
-                                    : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
-                            }`}
+                            className={`flex items-center space-x-1 px-4 py-2 rounded-md text-sm transition-colors ${isFirstStep
+                                ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                                : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
+                                }`}
                         >
                             <ChevronLeft className="w-4 h-4" />
                             <span>Previous</span>

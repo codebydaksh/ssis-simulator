@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { ValidationResult } from '@/lib/types';
-import { X, AlertCircle, AlertTriangle, Info, Lightbulb, BookOpen, ExternalLink } from 'lucide-react';
+import { X, AlertCircle, AlertTriangle, Info, Lightbulb, BookOpen } from 'lucide-react';
 
 interface ErrorDetailModalProps {
     error: ValidationResult | null;
@@ -41,78 +41,78 @@ export default function ErrorDetailModal({ error, isOpen, onClose }: ErrorDetail
 
     const getDetailedExplanation = (): string => {
         const message = error.message.toLowerCase();
-        
+
         if (message.includes('cannot connect csv') || message.includes('flat file')) {
             return 'CSV (Flat File) sources output data as text strings. OLEDB destinations expect strongly-typed data (integers, decimals, dates). The Data Conversion transformation converts text to the appropriate data types before loading into the database.';
         }
-        
+
         if (message.includes('excel') && message.includes('limit')) {
             return 'Excel files have a row limit of 65,536 rows per worksheet. If your data exceeds this limit, rows will be truncated. For larger datasets, consider using CSV or database destinations.';
         }
-        
+
         if (message.includes('merge join') && message.includes('sorted')) {
             return 'Merge Join requires both input streams to be sorted by the join key. This allows the component to efficiently match rows from both streams in a single pass. Without sorting, the Merge Join cannot guarantee correct results.';
         }
-        
+
         if (message.includes('union all') && message.includes('structure')) {
             return 'Union All combines rows from multiple sources into a single output. All input streams must have the same column structure (same column names, data types, and order) for the union to work correctly.';
         }
-        
+
         if (message.includes('lookup') && message.includes('reference')) {
             return 'Lookup transformation requires a reference dataset (lookup table) to match against. This reference input must be configured in the component properties to specify which table or query to use for lookups.';
         }
-        
+
         if (message.includes('circular dependency')) {
             return 'A circular dependency occurs when data flows in a loop (Component A  Component B  Component A). SSIS data flows must be acyclic (no loops) because data can only flow forward through the pipeline.';
         }
-        
+
         if (message.includes('source') && message.includes('input')) {
             return 'Source components are the starting point of a data flow. They read data from external sources (databases, files) and cannot receive data from other components. Only transformations and destinations can receive input connections.';
         }
-        
+
         if (message.includes('destination') && message.includes('output')) {
             return 'Destination components are the end point of a data flow. They write data to external targets (databases, files) and cannot send data to other components. Only sources and transformations can have output connections.';
         }
-        
+
         if (message.includes('transformation') && message.includes('input')) {
             return 'Transformations process data between sources and destinations. They require at least one input connection to receive data from upstream components (sources or other transformations).';
         }
-        
+
         if (message.includes('sort') && message.includes('large dataset')) {
             return 'Sort operations load all data into memory before sorting. For large datasets, this can cause memory pressure and performance issues. Filtering data before sorting reduces the amount of data that needs to be sorted.';
         }
-        
+
         if (message.includes('multiple lookups')) {
             return 'When you have multiple Lookup transformations in sequence, each lookup requires a separate database query. For large datasets, this can be slow. Merge Join is more efficient when both input streams are large and already sorted.';
         }
-        
+
         if (message.includes('aggregate') && message.includes('group by')) {
             return 'Aggregate transformations group rows and calculate summaries. Sorting input data by the GROUP BY columns before aggregating can improve performance because it allows the aggregate to process data in groups more efficiently.';
         }
-        
+
         if (message.includes('data conversion') && message.includes('unnecessary')) {
             return 'Data Conversion transformations change data types. If the source and destination already have compatible types, the conversion is unnecessary and adds overhead. Verify that the conversion is actually needed.';
         }
-        
+
         if (message.includes('error output')) {
             return 'Error outputs allow you to handle data quality issues gracefully. Instead of failing the entire pipeline, rows that fail validation or conversion can be routed to an error output, logged, and processed separately.';
         }
-        
+
         if (message.includes('null value')) {
             return 'NULL values can cause issues in calculations and expressions. Operations like division, concatenation, or arithmetic can produce NULL results if any input is NULL. Use ISNULL or COALESCE functions to provide default values.';
         }
-        
+
         if (message.includes('duplicate detection')) {
             return 'Duplicate rows can cause data quality issues. The standard pattern for deduplication is: Sort by the business key, then use Aggregate to keep only one row per key (typically the first or last based on a date field).';
         }
-        
+
         return 'This validation rule checks for common SSIS best practices and potential issues. Review the suggestion and apply the recommended fix to improve your pipeline.';
     };
 
     const getFixSteps = (): string[] => {
         const message = error.message.toLowerCase();
         const suggestion = error.suggestion?.toLowerCase() || '';
-        
+
         if (message.includes('cannot connect csv') || message.includes('flat file')) {
             return [
                 '1. Add a Data Conversion transformation between the Flat File Source and OLEDB Destination',
@@ -121,7 +121,7 @@ export default function ErrorDetailModal({ error, isOpen, onClose }: ErrorDetail
                 '4. Map the converted columns to the destination table columns'
             ];
         }
-        
+
         if (message.includes('merge join') && message.includes('sorted')) {
             return [
                 '1. Add a Sort transformation before each input to the Merge Join',
@@ -130,7 +130,7 @@ export default function ErrorDetailModal({ error, isOpen, onClose }: ErrorDetail
                 '4. Connect: Source 1  Sort 1  Merge Join, Source 2  Sort 2  Merge Join'
             ];
         }
-        
+
         if (message.includes('union all') && message.includes('structure')) {
             return [
                 '1. Ensure all input sources have the same column structure',
@@ -139,7 +139,7 @@ export default function ErrorDetailModal({ error, isOpen, onClose }: ErrorDetail
                 '4. Verify column order is the same in all inputs'
             ];
         }
-        
+
         if (message.includes('lookup') && message.includes('reference')) {
             return [
                 '1. Select the Lookup component',
@@ -149,7 +149,7 @@ export default function ErrorDetailModal({ error, isOpen, onClose }: ErrorDetail
                 '5. Map the lookup key columns'
             ];
         }
-        
+
         if (suggestion.includes('add') || suggestion.includes('configure')) {
             return [
                 `1. ${error.suggestion}`,
@@ -157,7 +157,7 @@ export default function ErrorDetailModal({ error, isOpen, onClose }: ErrorDetail
                 '3. Re-run validation to verify the fix'
             ];
         }
-        
+
         return [
             '1. Review the error message and understand the issue',
             '2. Apply the suggested fix',
@@ -167,27 +167,27 @@ export default function ErrorDetailModal({ error, isOpen, onClose }: ErrorDetail
 
     const getRelevantTemplates = (): string[] => {
         const message = error.message.toLowerCase();
-        
+
         if (message.includes('data conversion')) {
             return ['Basic ETL: Database to CSV', 'Data Type Conversion Pattern'];
         }
-        
+
         if (message.includes('merge join') || message.includes('join')) {
             return ['Merge Join Pattern', 'Star Schema Loading'];
         }
-        
+
         if (message.includes('lookup')) {
             return ['Lookup Transformation', 'Customer Data Enrichment'];
         }
-        
+
         if (message.includes('union')) {
             return ['Union All Pattern', 'Multiple Sources to Single Destination'];
         }
-        
+
         if (message.includes('sort')) {
             return ['Sort and Aggregate Pattern', 'Deduplication Pattern'];
         }
-        
+
         return ['Basic ETL: Database to CSV'];
     };
 
@@ -199,9 +199,9 @@ export default function ErrorDetailModal({ error, isOpen, onClose }: ErrorDetail
                         {getSeverityIcon()}
                         <div>
                             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                                {error.severity === 'error' ? 'Error Details' : 
-                                 error.severity === 'warning' ? 'Warning Details' : 
-                                 'Information'}
+                                {error.severity === 'error' ? 'Error Details' :
+                                    error.severity === 'warning' ? 'Warning Details' :
+                                        'Information'}
                             </h2>
                             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                                 {error.connectionId}

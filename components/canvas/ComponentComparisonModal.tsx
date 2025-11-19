@@ -118,7 +118,6 @@ export default function ComponentComparisonModal({ isOpen, onClose }: ComponentC
                                 {filteredComponents.map((comp) => {
                                     const isSelected1 = component1 === comp.category;
                                     const isSelected2 = component2 === comp.category;
-                                    const isSelected = isSelected1 || isSelected2;
 
                                     return (
                                         <button
@@ -134,13 +133,12 @@ export default function ComponentComparisonModal({ isOpen, onClose }: ComponentC
                                                     setComponent2(null);
                                                 }
                                             }}
-                                            className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                                                isSelected1
+                                            className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${isSelected1
                                                     ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100'
                                                     : isSelected2
-                                                    ? 'bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100'
-                                                    : 'hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
-                                            }`}
+                                                        ? 'bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100'
+                                                        : 'hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
+                                                }`}
                                         >
                                             <div className="flex items-center justify-between">
                                                 <span className="font-medium">{comp.name}</span>
