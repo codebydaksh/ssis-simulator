@@ -1,13 +1,36 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { TEMPLATES, Template } from '@/lib/templates';
 import { useCanvasStore } from '@/store/canvasStore';
-import { Book, X } from 'lucide-react';
+import { Book, X, Search } from 'lucide-react';
 
 export default function TemplateSelector() {
     const [isOpen, setIsOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const { loadTemplate } = useCanvasStore();
+
+    const categories = useMemo(() => {
+        const cats = new Set<string>();
+        TEMPLATES.forEach(t => {
+            if (t.category) cats.add(t.category);
+        });
+        return Array.from(cats).sort();
+    }, []);
+
+    const filteredTemplates = useMemo(() => {
+        return TEMPLATES.filter(template => {
+            const matchesSearch = !searchTerm || 
+                template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                template.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                template.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+            
+            const matchesCategory = !selectedCategory || template.category === selectedCategory;
+            
+            return matchesSearch && matchesCategory;
+        });
+    }, [searchTerm, selectedCategory]);
 
     const handleLoadTemplate = (template: Template) => {
         if (confirm(`Load template "${template.name}"? This will replace your current canvas.`)) {
@@ -31,46 +54,113 @@ export default function TemplateSelector() {
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
-                <div className="flex items-center justify-between p-4 border-b">
-                    <h2 className="text-xl font-bold">Load Example Template</h2>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-6xl w-full max-h-[85vh] overflow-hidden flex flex-col">
+                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Load Example Template</h2>
                     <button
                         onClick={() => setIsOpen(false)}
-                        className="p-1 hover:bg-gray-100 rounded"
+                        className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                     >
-                        <X className="w-5 h-5" />
+                        <X className="w-5 h-5 text-gray-600 dark:text-gray-300" />
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {TEMPLATES.map((template) => (
-                            <div
-                                key={template.id}
-                                className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                                onClick={() => handleLoadTemplate(template)}
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700 space-y-4">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="Search templates by name, description, or tags..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+                        />
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                            onClick={() => setSelectedCategory(null)}
+                            className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
+                                selectedCategory === null
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                            }`}
+                        >
+                            All Categories
+                        </button>
+                        {categories.map(category => (
+                            <button
+                                key={category}
+                                onClick={() => setSelectedCategory(category)}
+                                className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
+                                    selectedCategory === category
+                                        ? 'bg-indigo-600 text-white'
+                                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                                }`}
                             >
-                                <div className="flex items-start justify-between mb-2">
-                                    <h3 className="font-semibold text-lg">{template.name}</h3>
-                                    <span className={`text-xs px-2 py-1 rounded ${template.difficulty === 'Beginner' ? 'bg-green-100 text-green-800' :
-                                            template.difficulty === 'Intermediate' ? 'bg-yellow-100 text-yellow-800' :
-                                                'bg-red-100 text-red-800'
-                                        }`}>
-                                        {template.difficulty}
-                                    </span>
-                                </div>
-                                <p className="text-sm text-gray-600 mb-3">{template.description}</p>
-                                <div className="flex items-center justify-between text-xs text-gray-500">
-                                    <span>{template.components.length} components</span>
-                                    <span>{template.connections.length} connections</span>
-                                </div>
-                            </div>
+                                {category}
+                            </button>
                         ))}
+                    </div>
+                    
+                    <div className="text-sm text-gray-600 dark:text-gray-400">
+                        Showing {filteredTemplates.length} of {TEMPLATES.length} templates
                     </div>
                 </div>
 
-                <div className="p-4 border-t bg-gray-50">
-                    <p className="text-sm text-gray-600">
+                <div className="flex-1 overflow-y-auto p-4">
+                    {filteredTemplates.length === 0 ? (
+                        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                            <p className="text-lg mb-2">No templates found</p>
+                            <p className="text-sm">Try adjusting your search or category filter</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {filteredTemplates.map((template) => (
+                                <div
+                                    key={template.id}
+                                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer bg-white dark:bg-gray-800"
+                                    onClick={() => handleLoadTemplate(template)}
+                                >
+                                    <div className="flex items-start justify-between mb-2">
+                                        <h3 className="font-semibold text-lg text-gray-900 dark:text-white">{template.name}</h3>
+                                        <span className={`text-xs px-2 py-1 rounded flex-shrink-0 ml-2 ${
+                                            template.difficulty === 'Beginner' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' :
+                                            template.difficulty === 'Intermediate' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' :
+                                            'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
+                                        }`}>
+                                            {template.difficulty}
+                                        </span>
+                                    </div>
+                                    {template.category && (
+                                        <div className="mb-2">
+                                            <span className="text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                                                {template.category}
+                                            </span>
+                                        </div>
+                                    )}
+                                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">{template.description}</p>
+                                    <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                                        <span>{template.components.length} components</span>
+                                        <span>{template.connections.length} connections</span>
+                                    </div>
+                                    {template.tags && template.tags.length > 0 && (
+                                        <div className="mt-2 flex flex-wrap gap-1">
+                                            {template.tags.slice(0, 3).map(tag => (
+                                                <span key={tag} className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                                                    {tag}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                         Click any template to load it. Your current canvas will be replaced.
                     </p>
                 </div>

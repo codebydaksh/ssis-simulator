@@ -8,12 +8,18 @@ import ErrorPanel from '@/components/canvas/ErrorPanel';
 import TemplateSelector from '@/components/canvas/TemplateSelector';
 import SuggestionsPanel from '@/components/canvas/SuggestionsPanel';
 import PerformanceModal from '@/components/canvas/PerformanceModal';
+import DataPreviewModal from '@/components/canvas/DataPreviewModal';
+import ComponentComparisonModal from '@/components/canvas/ComponentComparisonModal';
+import TutorialSelector from '@/components/canvas/TutorialSelector';
 import { useCanvasStore } from '@/store/canvasStore';
-import { Download, Upload, Trash2, Save, Undo, Redo, Activity } from 'lucide-react';
+import { Download, Upload, Trash2, Save, Undo, Redo, Activity, Moon, Sun, Share2, Eye, GitCompare } from 'lucide-react';
+import { useTheme } from '@/lib/themeContext';
+import { encodePipelineToURL, copyToClipboard } from '@/lib/shareableLinks';
 
 export default function CanvasPage() {
     const {
         loadFromStorage,
+        loadFromURL,
         saveToStorage,
         exportToFile,
         importFromFile,
@@ -23,15 +29,30 @@ export default function CanvasPage() {
         canUndo,
         canRedo,
         selectedComponent,
-        removeComponent
+        removeComponent,
+        copyComponent,
+        pasteComponent,
+        canPaste,
+        components,
+        connections
     } = useCanvasStore();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isPerformanceModalOpen, setIsPerformanceModalOpen] = React.useState(false);
+    const [isDataPreviewModalOpen, setIsDataPreviewModalOpen] = React.useState(false);
+    const [isComponentComparisonModalOpen, setIsComponentComparisonModalOpen] = React.useState(false);
+    const { theme, toggleTheme } = useTheme();
 
-    // Load from localStorage on mount
+    // Load from URL first (if present), then from localStorage
     useEffect(() => {
-        loadFromStorage();
-    }, [loadFromStorage]);
+        const urlParams = new URLSearchParams(window.location.search);
+        const hasPipelineParam = urlParams.has('pipeline');
+        
+        if (hasPipelineParam) {
+            loadFromURL();
+        } else {
+            loadFromStorage();
+        }
+    }, [loadFromStorage, loadFromURL]);
 
     // Auto-save every 30 seconds
     useEffect(() => {
@@ -83,6 +104,18 @@ export default function CanvasPage() {
                 setTimeout(() => notification.remove(), 2000);
             }
 
+            // Ctrl+C - Copy selected component
+            if (e.ctrlKey && e.key === 'c' && selectedComponent) {
+                e.preventDefault();
+                copyComponent(selectedComponent);
+            }
+
+            // Ctrl+V - Paste component
+            if (e.ctrlKey && e.key === 'v' && canPaste()) {
+                e.preventDefault();
+                pasteComponent();
+            }
+
             // Delete - Remove selected component
             if (e.key === 'Delete' && selectedComponent) {
                 e.preventDefault();
@@ -97,7 +130,7 @@ export default function CanvasPage() {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [undo, redo, canUndo, canRedo, saveToStorage, selectedComponent, removeComponent]);
+    }, [undo, redo, canUndo, canRedo, saveToStorage, selectedComponent, removeComponent, copyComponent, pasteComponent, canPaste]);
 
     const handleImport = () => {
         fileInputRef.current?.click();
@@ -119,6 +152,26 @@ export default function CanvasPage() {
         }
     };
 
+    const handleShare = async () => {
+        try {
+            const shareUrl = encodePipelineToURL(components, connections);
+            await copyToClipboard(shareUrl);
+            
+            const notification = document.createElement('div');
+            notification.textContent = 'Shareable link copied to clipboard!';
+            notification.className = 'fixed top-16 right-4 bg-blue-600 text-white px-4 py-2 rounded shadow-lg z-50';
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        } catch (error) {
+            console.error('Failed to copy shareable link:', error);
+            const notification = document.createElement('div');
+            notification.textContent = 'Failed to copy link. Please try again.';
+            notification.className = 'fixed top-16 right-4 bg-red-600 text-white px-4 py-2 rounded shadow-lg z-50';
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 3000);
+        }
+    };
+
     return (
         <div className="flex flex-col h-screen w-screen overflow-hidden bg-white">
             <input
@@ -129,7 +182,7 @@ export default function CanvasPage() {
                 style={{ display: 'none' }}
             />
 
-            <header className="h-12 bg-gray-900 text-white flex items-center justify-between px-4 shadow-md z-10">
+            <header className="h-12 bg-gray-900 dark:bg-gray-800 text-white flex items-center justify-between px-4 shadow-md z-10">
                 <div className="flex items-center space-x-2">
                     <span className="font-bold text-lg">SSIS Data Flow Simulator</span>
                     <span className="text-xs bg-blue-600 px-2 py-0.5 rounded">Beta</span>
@@ -164,6 +217,18 @@ export default function CanvasPage() {
                     </div>
 
                     <button
+                        onClick={toggleTheme}
+                        className="flex items-center space-x-1 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm transition-colors"
+                        title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                    >
+                        {theme === 'dark' ? (
+                            <Sun className="w-4 h-4" />
+                        ) : (
+                            <Moon className="w-4 h-4" />
+                        )}
+                    </button>
+
+                    <button
                         onClick={() => setIsPerformanceModalOpen(true)}
                         className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 rounded text-sm transition-all shadow-sm"
                         title="Simulate Performance"
@@ -172,7 +237,34 @@ export default function CanvasPage() {
                         <span>Simulate</span>
                     </button>
 
+                    <button
+                        onClick={() => setIsDataPreviewModalOpen(true)}
+                        className="flex items-center space-x-1 px-3 py-1.5 bg-teal-600 hover:bg-teal-700 rounded text-sm transition-colors"
+                        title="Preview Data Flow"
+                    >
+                        <Eye className="w-4 h-4" />
+                        <span>Preview</span>
+                    </button>
+
+                    <button
+                        onClick={() => setIsComponentComparisonModalOpen(true)}
+                        className="flex items-center space-x-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 rounded text-sm transition-colors"
+                        title="Compare Components"
+                    >
+                        <GitCompare className="w-4 h-4" />
+                        <span>Compare</span>
+                    </button>
+
+                    <TutorialSelector />
                     <TemplateSelector />
+                    <button
+                        onClick={handleShare}
+                        className="flex items-center space-x-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 rounded text-sm transition-colors"
+                        title="Copy shareable link"
+                    >
+                        <Share2 className="w-4 h-4" />
+                        <span>Share</span>
+                    </button>
                     <button
                         onClick={saveToStorage}
                         className="flex items-center space-x-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded text-sm transition-colors"
@@ -211,13 +303,21 @@ export default function CanvasPage() {
             <div className="flex flex-1 overflow-hidden relative">
                 <Toolbox />
 
-                <div className="flex-1 relative bg-gray-50">
+                <div className="flex-1 relative bg-gray-50 dark:bg-gray-900">
                     <Canvas />
                     <ErrorPanel />
                     <SuggestionsPanel />
                     <PerformanceModal
                         isOpen={isPerformanceModalOpen}
                         onClose={() => setIsPerformanceModalOpen(false)}
+                    />
+                    <DataPreviewModal
+                        isOpen={isDataPreviewModalOpen}
+                        onClose={() => setIsDataPreviewModalOpen(false)}
+                    />
+                    <ComponentComparisonModal
+                        isOpen={isComponentComparisonModalOpen}
+                        onClose={() => setIsComponentComparisonModalOpen(false)}
                     />
                 </div>
 

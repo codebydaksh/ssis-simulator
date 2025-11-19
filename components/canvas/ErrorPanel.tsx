@@ -4,34 +4,42 @@ import React, { useState } from 'react';
 import { useCanvasStore } from '@/store/canvasStore';
 import { AlertCircle, AlertTriangle, ChevronDown, ChevronUp, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import ErrorDetailModal from './ErrorDetailModal';
+import { ValidationResult } from '@/lib/types';
 
 export default function ErrorPanel() {
     const { errors, selectComponent } = useCanvasStore();
     const [isCollapsed, setIsCollapsed] = useState(false);
+    const [selectedError, setSelectedError] = useState<ValidationResult | null>(null);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
     const errorCount = errors.filter(e => e.severity === 'error').length;
     const warningCount = errors.filter(e => e.severity === 'warning').length;
 
-    const handleErrorClick = (componentIds: string[]) => {
+    const handleErrorClick = (error: ValidationResult, componentIds: string[]) => {
+        // Select the component first
         if (componentIds.length > 0) {
             selectComponent(componentIds[0]);
         }
+        // Show detailed error modal
+        setSelectedError(error);
+        setIsDetailModalOpen(true);
     };
 
     return (
         <div
             className={cn(
-                "fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg transition-all duration-300 z-50",
+                "fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 shadow-lg transition-all duration-300 z-50",
                 isCollapsed ? "h-10" : "h-48"
             )}
         >
             {/* Header */}
             <div
-                className="flex items-center justify-between px-4 h-10 bg-gray-50 cursor-pointer hover:bg-gray-100"
+                className="flex items-center justify-between px-4 h-10 bg-gray-50 dark:bg-gray-900 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
                 onClick={() => setIsCollapsed(!isCollapsed)}
             >
                 <div className="flex items-center space-x-4">
-                    <h3 className="font-bold text-sm text-gray-700">Validation Results</h3>
+                    <h3 className="font-bold text-sm text-gray-700 dark:text-gray-300">Validation Results</h3>
                     <div className="flex space-x-3 text-xs">
                         <span className={cn("flex items-center", errorCount > 0 ? "text-red-600 font-bold" : "text-gray-500")}>
                             <AlertCircle className="w-3 h-3 mr-1" />
@@ -56,7 +64,7 @@ export default function ErrorPanel() {
                         </div>
                     ) : (
                         <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-50 text-gray-500 sticky top-0">
+                            <thead className="bg-gray-50 dark:bg-gray-900 text-gray-500 dark:text-gray-400 sticky top-0">
                                 <tr>
                                     <th className="px-4 py-2 font-medium w-20">Severity</th>
                                     <th className="px-4 py-2 font-medium">Message</th>
@@ -67,8 +75,8 @@ export default function ErrorPanel() {
                                 {errors.map((error, idx) => (
                                     <tr
                                         key={idx}
-                                        className="hover:bg-blue-50 cursor-pointer group"
-                                        onClick={() => handleErrorClick(error.affectedComponents)}
+                                        className="hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer group"
+                                        onClick={() => handleErrorClick(error, error.affectedComponents)}
                                     >
                                         <td className="px-4 py-2">
                                             {error.severity === 'error' && (
@@ -87,11 +95,11 @@ export default function ErrorPanel() {
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-4 py-2 text-gray-800 group-hover:text-blue-700">
+                                        <td className="px-4 py-2 text-gray-800 dark:text-gray-200 group-hover:text-blue-700 dark:group-hover:text-blue-400">
                                             {error.message}
                                         </td>
-                                        <td className="px-4 py-2 text-gray-600 italic">
-                                            {error.suggestion}
+                                        <td className="px-4 py-2 text-gray-600 dark:text-gray-400 italic">
+                                            {error.suggestion || 'Click for details'}
                                         </td>
                                     </tr>
                                 ))}
@@ -100,6 +108,15 @@ export default function ErrorPanel() {
                     )}
                 </div>
             )}
+
+            <ErrorDetailModal
+                error={selectedError}
+                isOpen={isDetailModalOpen}
+                onClose={() => {
+                    setIsDetailModalOpen(false);
+                    setSelectedError(null);
+                }}
+            />
         </div>
     );
 }

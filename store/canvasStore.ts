@@ -1,14 +1,17 @@
 import { create } from 'zustand';
+import { v4 as uuidv4 } from 'uuid';
 import { SSISComponent, Connection, ValidationResult } from '../lib/types';
 import { validateGraph } from '../lib/validationEngine';
 import { saveToLocalStorage, loadFromLocalStorage, exportToJSON, importFromJSON } from '../lib/persistence';
 import { historyManager } from '../lib/historyManager';
+import { decodePipelineFromURL } from '../lib/shareableLinks';
 
 interface CanvasState {
     components: SSISComponent[];
     connections: Connection[];
     selectedComponent: string | null;
     errors: ValidationResult[];
+    clipboard: SSISComponent | null;
 
     // Actions
     addComponent: (component: SSISComponent) => void;
@@ -25,6 +28,11 @@ interface CanvasState {
     validateAll: () => void;
     clearCanvas: () => void;
 
+    // Copy/Paste
+    copyComponent: (id: string) => void;
+    pasteComponent: () => void;
+    canPaste: () => boolean;
+
     // History (Undo/Redo)
     undo: () => void;
     redo: () => void;
@@ -39,6 +47,9 @@ interface CanvasState {
 
     // Templates
     loadTemplate: (components: SSISComponent[], connections: Connection[]) => void;
+
+    // Shareable Links
+    loadFromURL: () => void;
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => {
@@ -53,6 +64,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         connections: [],
         selectedComponent: null,
         errors: [],
+        clipboard: null,
 
         addComponent: (component) => {
             set((state) => {
@@ -117,6 +129,43 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         },
 
         selectComponent: (id) => set({ selectedComponent: id }),
+
+        copyComponent: (id) => {
+            const component = get().components.find(c => c.id === id);
+            if (component) {
+                set({ clipboard: { ...component } });
+            }
+        },
+
+        pasteComponent: () => {
+            const { clipboard, components } = get();
+            if (!clipboard) return;
+
+            const newId = uuidv4();
+            const offset = 50;
+            
+            const newComponent: SSISComponent = {
+                ...clipboard,
+                id: newId,
+                position: {
+                    x: clipboard.position.x + offset,
+                    y: clipboard.position.y + offset
+                },
+                inputs: [],
+                outputs: [],
+                hasError: false,
+                errorMessage: undefined
+            };
+
+            set((state) => ({
+                components: [...state.components, newComponent],
+                selectedComponent: newId
+            }));
+            saveHistory(`Pasted ${newComponent.category}`);
+            get().validateAll();
+        },
+
+        canPaste: () => get().clipboard !== null,
 
         validateAll: () => {
             const { components, connections } = get();
@@ -230,6 +279,21 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
             historyManager.clear();
             saveHistory('Loaded template');
             get().validateAll();
+        },
+
+        loadFromURL: () => {
+            const data = decodePipelineFromURL();
+            if (data) {
+                set({
+                    components: data.components,
+                    connections: data.connections,
+                    errors: [],
+                    selectedComponent: null
+                });
+                historyManager.clear();
+                saveHistory('Loaded from shareable link');
+                get().validateAll();
+            }
         }
     };
 });
