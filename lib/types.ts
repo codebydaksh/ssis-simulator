@@ -1,6 +1,8 @@
-export type ComponentType = 'source' | 'transformation' | 'destination';
+export type ComponentType = 'source' | 'transformation' | 'destination' | 'control-flow-task';
 export type DataType = 'structured' | 'text' | 'mixed' | 'nested';
 export type Severity = 'error' | 'warning' | 'info';
+export type ViewMode = 'data-flow' | 'control-flow';
+export type PrecedenceConstraintType = 'success' | 'failure' | 'completion';
 
 export interface ColumnSchema {
     name: string;
@@ -20,7 +22,7 @@ export interface ValidationResult {
 export interface SSISComponent {
     id: string;
     type: ComponentType;
-    category: string; // e.g., 'OLEDBSource', 'Lookup'
+    category: string; // e.g., 'OLEDBSource', 'Lookup', 'DataFlowTask', 'ExecuteSQLTask'
     name: string;
     icon: string;
     description: string;
@@ -47,6 +49,13 @@ export interface SSISComponent {
     isSorted?: boolean;
     referenceInput?: string; // For Lookup
 
+    // Control Flow specific
+    constraintType?: PrecedenceConstraintType; // For precedence constraints
+    nestedDataFlow?: { // For Data Flow Task - contains nested data flow
+        components: SSISComponent[];
+        connections: Connection[];
+    };
+
     [key: string]: unknown;
 }
 
@@ -58,6 +67,10 @@ export interface Connection {
     targetHandle?: string;
     isValid: boolean;
     validationResult?: ValidationResult;
+
+    // Control Flow specific
+    constraintType?: PrecedenceConstraintType; // For precedence constraints in Control Flow
+    expression?: string; // For expression-based constraints
 
     [key: string]: unknown;
 }

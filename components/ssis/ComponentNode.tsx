@@ -20,6 +20,8 @@ const BaseNode = ({ data, selected }: SSISNodeProps) => {
                 return 'bg-purple-50 border-purple-500 text-purple-900';
             case 'destination':
                 return 'bg-green-50 border-green-500 text-green-900';
+            case 'control-flow-task':
+                return 'bg-orange-50 border-orange-500 text-orange-900';
             default:
                 return 'bg-gray-50 border-gray-500 text-gray-900';
         }
@@ -36,13 +38,28 @@ const BaseNode = ({ data, selected }: SSISNodeProps) => {
                 highlightStatus === 'downstream' ? 'ring-2 ring-green-300 bg-green-100' : ''
             )}
         >
-            {/* Input Handle (not for sources) */}
-            {type !== 'source' && (
+            {/* Input Handle (not for sources, control flow tasks have handles on all sides) */}
+            {type !== 'source' && type !== 'control-flow-task' && (
                 <Handle
                     type="target"
                     position={Position.Left}
                     className="w-3 h-3 !bg-gray-400 hover:!bg-blue-500"
                 />
+            )}
+            {/* Control Flow Tasks have handles on top and bottom */}
+            {type === 'control-flow-task' && (
+                <>
+                    <Handle
+                        type="target"
+                        position={Position.Top}
+                        className="w-3 h-3 !bg-orange-400 hover:!bg-orange-600"
+                    />
+                    <Handle
+                        type="source"
+                        position={Position.Bottom}
+                        className="w-3 h-3 !bg-orange-400 hover:!bg-orange-600"
+                    />
+                </>
             )}
 
             {/* Icon */}
@@ -63,13 +80,19 @@ const BaseNode = ({ data, selected }: SSISNodeProps) => {
                 </div>
             )}
 
-            {/* Output Handle (not for destinations) */}
-            {type !== 'destination' && (
+            {/* Output Handle (not for destinations or control flow tasks) */}
+            {type !== 'destination' && type !== 'control-flow-task' && (
                 <Handle
                     type="source"
                     position={Position.Right}
                     className="w-3 h-3 !bg-gray-400 hover:!bg-blue-500"
                 />
+            )}
+            {/* Show hint for Data Flow Task */}
+            {type === 'control-flow-task' && category === 'DataFlowTask' && (
+                <div className="absolute -bottom-6 left-0 right-0 text-xs text-center text-gray-500 italic">
+                    Double-click to edit
+                </div>
             )}
         </div>
     );

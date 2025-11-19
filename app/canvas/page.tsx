@@ -12,7 +12,7 @@ import DataPreviewModal from '@/components/canvas/DataPreviewModal';
 import ComponentComparisonModal from '@/components/canvas/ComponentComparisonModal';
 import TutorialSelector from '@/components/canvas/TutorialSelector';
 import { useCanvasStore } from '@/store/canvasStore';
-import { Download, Upload, Trash2, Save, Undo, Redo, Activity, Moon, Sun, Share2, Eye, GitCompare } from 'lucide-react';
+import { Download, Upload, Trash2, Save, Undo, Redo, Activity, Moon, Sun, Share2, Eye, GitCompare, Workflow, Database, ArrowLeft } from 'lucide-react';
 import { useTheme } from '@/lib/themeContext';
 import { encodePipelineToURL, copyToClipboard } from '@/lib/shareableLinks';
 
@@ -33,8 +33,12 @@ export default function CanvasPage() {
         copyComponent,
         pasteComponent,
         canPaste,
-        components,
-        connections
+        components: allComponents,
+        connections,
+        viewMode,
+        setViewMode,
+        currentDataFlowTaskId,
+        navigateToControlFlow
     } = useCanvasStore();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isPerformanceModalOpen, setIsPerformanceModalOpen] = React.useState(false);
@@ -154,7 +158,7 @@ export default function CanvasPage() {
 
     const handleShare = async () => {
         try {
-            const shareUrl = encodePipelineToURL(components, connections);
+            const shareUrl = encodePipelineToURL(allComponents, connections);
             await copyToClipboard(shareUrl);
             
             const notification = document.createElement('div');
@@ -183,9 +187,58 @@ export default function CanvasPage() {
             />
 
             <header className="h-12 bg-gray-900 dark:bg-gray-800 text-white flex items-center justify-between px-4 shadow-md z-10">
-                <div className="flex items-center space-x-2">
-                    <span className="font-bold text-lg">SSIS Data Flow Simulator</span>
-                    <span className="text-xs bg-blue-600 px-2 py-0.5 rounded">Beta</span>
+                <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2">
+                        <span className="font-bold text-lg">SSIS Simulator</span>
+                        <span className="text-xs bg-blue-600 px-2 py-0.5 rounded">Beta</span>
+                    </div>
+                    
+                    {/* Breadcrumb */}
+                    {currentDataFlowTaskId && (
+                        <div className="flex items-center space-x-2 text-sm">
+                            <button
+                                onClick={navigateToControlFlow}
+                                className="flex items-center space-x-1 px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs transition-colors"
+                            >
+                                <ArrowLeft className="w-3 h-3" />
+                                <span>Control Flow</span>
+                            </button>
+                            <span className="text-gray-400">/</span>
+                            <span className="text-gray-300">
+                                {allComponents.find(c => c.id === currentDataFlowTaskId)?.name || 'Data Flow'}
+                            </span>
+                        </div>
+                    )}
+                    
+                    {/* View Mode Toggle */}
+                    {!currentDataFlowTaskId && (
+                        <div className="flex items-center space-x-1 bg-gray-700 rounded p-1">
+                            <button
+                                onClick={() => setViewMode('control-flow')}
+                                className={`flex items-center space-x-1 px-3 py-1 rounded text-xs transition-colors ${
+                                    viewMode === 'control-flow'
+                                        ? 'bg-orange-600 text-white'
+                                        : 'text-gray-300 hover:text-white'
+                                }`}
+                                title="Control Flow View"
+                            >
+                                <Workflow className="w-3 h-3" />
+                                <span>Control Flow</span>
+                            </button>
+                            <button
+                                onClick={() => setViewMode('data-flow')}
+                                className={`flex items-center space-x-1 px-3 py-1 rounded text-xs transition-colors ${
+                                    viewMode === 'data-flow'
+                                        ? 'bg-blue-600 text-white'
+                                        : 'text-gray-300 hover:text-white'
+                                }`}
+                                title="Data Flow View"
+                            >
+                                <Database className="w-3 h-3" />
+                                <span>Data Flow</span>
+                            </button>
+                        </div>
+                    )}
                 </div>
                 <div className="flex items-center space-x-3">
                     {/* Undo/Redo buttons */}

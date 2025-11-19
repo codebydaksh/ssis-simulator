@@ -187,6 +187,71 @@ export const COMPONENT_DEFINITIONS: ComponentDefinition[] = [
         description: 'Optimized bulk insert into SQL Server.',
         useCases: ['High-performance loading', 'Bulk inserts'],
         dataType: 'structured'
+    },
+
+    // --- CONTROL FLOW TASKS ---
+    {
+        type: 'control-flow-task',
+        category: 'DataFlowTask',
+        name: 'Data Flow Task',
+        icon: '📊',
+        description: 'Container for data flow transformations. Double-click to edit the data flow inside.',
+        useCases: ['ETL operations', 'Data transformations', 'Loading data'],
+        dataType: 'structured'
+    },
+    {
+        type: 'control-flow-task',
+        category: 'ExecuteSQLTask',
+        name: 'Execute SQL Task',
+        icon: '⚙️',
+        description: 'Executes SQL statements or stored procedures.',
+        useCases: ['Truncate tables before load', 'Run stored procedures', 'Execute DDL statements'],
+        dataType: 'structured'
+    },
+    {
+        type: 'control-flow-task',
+        category: 'FileSystemTask',
+        name: 'File System Task',
+        icon: '📁',
+        description: 'Performs file operations (copy, move, delete, rename).',
+        useCases: ['Archive files', 'Move processed files', 'Clean up temp files'],
+        dataType: 'structured'
+    },
+    {
+        type: 'control-flow-task',
+        category: 'ScriptTask',
+        name: 'Script Task',
+        icon: '📝',
+        description: 'Runs custom .NET code for complex logic.',
+        useCases: ['Custom validation', 'Complex calculations', 'API calls'],
+        dataType: 'structured'
+    },
+    {
+        type: 'control-flow-task',
+        category: 'ForLoopContainer',
+        name: 'For Loop Container',
+        icon: '🔁',
+        description: 'Repeats tasks a fixed number of times.',
+        useCases: ['Process multiple files', 'Iterate through dates', 'Batch processing'],
+        dataType: 'structured'
+    },
+    {
+        type: 'control-flow-task',
+        category: 'ForeachLoopContainer',
+        name: 'Foreach Loop Container',
+        icon: '🔄',
+        description: 'Repeats tasks for each item in a collection.',
+        useCases: ['Process all files in folder', 'Iterate through table rows', 'Dynamic file processing'],
+        dataType: 'structured'
+    },
+    {
+        type: 'control-flow-task',
+        category: 'SequenceContainer',
+        name: 'Sequence Container',
+        icon: '📦',
+        description: 'Groups tasks together for organization and transaction management.',
+        useCases: ['Group related tasks', 'Transaction boundaries', 'Organizing package structure'],
+        dataType: 'structured'
     }
 ];
 

@@ -3,13 +3,16 @@
 import React, { useState } from 'react';
 import { COMPONENT_DEFINITIONS, ComponentDefinition } from '@/lib/componentDefinitions';
 import { Search, ChevronDown, ChevronRight } from 'lucide-react';
+import { useCanvasStore } from '@/store/canvasStore';
 
 export default function Toolbox() {
+    const { viewMode, currentDataFlowTaskId } = useCanvasStore();
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedSections, setExpandedSections] = useState({
         source: true,
         transformation: true,
         destination: true,
+        'control-flow': true,
     });
 
     const toggleSection = (section: keyof typeof expandedSections) => {
@@ -22,7 +25,29 @@ export default function Toolbox() {
         event.dataTransfer.effectAllowed = 'move';
     };
 
-    const filteredComponents = COMPONENT_DEFINITIONS.filter(c =>
+    // Filter components based on view mode
+    const availableComponents = React.useMemo(() => {
+        // If in nested data flow, show only data flow components
+        if (currentDataFlowTaskId) {
+            return COMPONENT_DEFINITIONS.filter(c => 
+                c.type === 'source' || 
+                c.type === 'transformation' || 
+                c.type === 'destination'
+            );
+        }
+        // If in control flow view, show only control flow tasks
+        if (viewMode === 'control-flow') {
+            return COMPONENT_DEFINITIONS.filter(c => c.type === 'control-flow-task');
+        }
+        // Default: data flow view - show data flow components
+        return COMPONENT_DEFINITIONS.filter(c => 
+            c.type === 'source' || 
+            c.type === 'transformation' || 
+            c.type === 'destination'
+        );
+    }, [viewMode, currentDataFlowTaskId]);
+
+    const filteredComponents = availableComponents.filter(c =>
         c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.category.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -30,6 +55,7 @@ export default function Toolbox() {
     const sources = filteredComponents.filter(c => c.type === 'source');
     const transformations = filteredComponents.filter(c => c.type === 'transformation');
     const destinations = filteredComponents.filter(c => c.type === 'destination');
+    const controlFlowTasks = filteredComponents.filter(c => c.type === 'control-flow-task');
 
     const renderSection = (title: string, items: ComponentDefinition[], sectionKey: keyof typeof expandedSections) => (
         <div className="mb-4">
@@ -43,20 +69,24 @@ export default function Toolbox() {
 
             {expandedSections[sectionKey] && (
                 <div className="grid grid-cols-1 gap-2 pl-2">
-                    {items.map((component) => (
-                        <div
-                            key={component.category}
-                            className="flex items-center p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md cursor-move hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-sm transition-all"
-                            draggable
-                            onDragStart={(e) => onDragStart(e, component)}
-                        >
-                            <span className="text-xl mr-3">{component.icon}</span>
-                            <div>
-                                <div className="text-sm font-medium text-gray-900 dark:text-white">{component.name}</div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400 truncate w-40">{component.description}</div>
+                    {items.length === 0 ? (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 italic p-2">No components available</div>
+                    ) : (
+                        items.map((component) => (
+                            <div
+                                key={component.category}
+                                className="flex items-center p-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md cursor-move hover:border-blue-500 dark:hover:border-blue-400 hover:shadow-sm transition-all"
+                                draggable
+                                onDragStart={(e) => onDragStart(e, component)}
+                            >
+                                <span className="text-xl mr-3">{component.icon}</span>
+                                <div>
+                                    <div className="text-sm font-medium text-gray-900 dark:text-white">{component.name}</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate w-40">{component.description}</div>
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        ))
+                    )}
                 </div>
             )}
         </div>
@@ -79,9 +109,23 @@ export default function Toolbox() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4">
-                {renderSection('Sources', sources, 'source')}
-                {renderSection('Transformations', transformations, 'transformation')}
-                {renderSection('Destinations', destinations, 'destination')}
+                {viewMode === 'control-flow' && !currentDataFlowTaskId && (
+                    renderSection('Control Flow Tasks', controlFlowTasks, 'control-flow')
+                )}
+                {viewMode === 'data-flow' && !currentDataFlowTaskId && (
+                    <>
+                        {renderSection('Sources', sources, 'source')}
+                        {renderSection('Transformations', transformations, 'transformation')}
+                        {renderSection('Destinations', destinations, 'destination')}
+                    </>
+                )}
+                {currentDataFlowTaskId && (
+                    <>
+                        {renderSection('Sources', sources, 'source')}
+                        {renderSection('Transformations', transformations, 'transformation')}
+                        {renderSection('Destinations', destinations, 'destination')}
+                    </>
+                )}
             </div>
         </div>
     );

@@ -1,12 +1,22 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import { SSISComponent, Connection, ValidationResult } from '../lib/types';
+import { SSISComponent, Connection, ValidationResult, ViewMode } from '../lib/types';
 import { validateGraph } from '../lib/validationEngine';
 import { saveToLocalStorage, loadFromLocalStorage, exportToJSON, importFromJSON } from '../lib/persistence';
 import { historyManager } from '../lib/historyManager';
 import { decodePipelineFromURL } from '../lib/shareableLinks';
 
 interface CanvasState {
+    // View mode
+    viewMode: ViewMode;
+    setViewMode: (mode: ViewMode) => void;
+    
+    // Current context (for nested data flows)
+    currentDataFlowTaskId: string | null; // If viewing nested data flow, this is the parent task ID
+    setCurrentDataFlowTaskId: (id: string | null) => void;
+    navigateToDataFlow: (taskId: string) => void;
+    navigateToControlFlow: () => void;
+
     components: SSISComponent[];
     connections: Connection[];
     selectedComponent: string | null;
@@ -50,6 +60,10 @@ interface CanvasState {
 
     // Shareable Links
     loadFromURL: () => void;
+
+    // Helper getters for current view
+    getCurrentComponents: () => SSISComponent[];
+    getCurrentConnections: () => Connection[];
 }
 
 export const useCanvasStore = create<CanvasState>((set, get) => {
@@ -60,6 +74,41 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
     };
 
     return {
+        // View mode - default to data-flow for backward compatibility
+        viewMode: 'data-flow',
+        setViewMode: (mode: ViewMode) => {
+            set({ viewMode: mode, selectedComponent: null });
+        },
+
+        // Nested data flow navigation
+        currentDataFlowTaskId: null,
+        setCurrentDataFlowTaskId: (id: string | null) => {
+            set({ currentDataFlowTaskId: id });
+        },
+        navigateToDataFlow: (taskId: string) => {
+            const task = get().components.find(c => c.id === taskId);
+            if (task && task.category === 'DataFlowTask') {
+                // Initialize nested data flow if it doesn't exist
+                if (!task.nestedDataFlow) {
+                    get().updateComponent(taskId, {
+                        nestedDataFlow: { components: [], connections: [] }
+                    });
+                }
+                set({ 
+                    currentDataFlowTaskId: taskId,
+                    viewMode: 'data-flow',
+                    selectedComponent: null
+                });
+            }
+        },
+        navigateToControlFlow: () => {
+            set({ 
+                currentDataFlowTaskId: null,
+                viewMode: 'control-flow',
+                selectedComponent: null
+            });
+        },
+
         components: [],
         connections: [],
         selectedComponent: null,
@@ -67,6 +116,26 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         clipboard: null,
 
         addComponent: (component) => {
+            const { viewMode, currentDataFlowTaskId, components } = get();
+            
+            // If in nested data flow, add to nested data flow
+            if (currentDataFlowTaskId) {
+                const task = components.find(c => c.id === currentDataFlowTaskId);
+                if (task && task.nestedDataFlow) {
+                    const updatedNested = {
+                        components: [...task.nestedDataFlow.components, component],
+                        connections: task.nestedDataFlow.connections
+                    };
+                    get().updateComponent(currentDataFlowTaskId, {
+                        nestedDataFlow: updatedNested
+                    });
+                    saveHistory(`Added ${component.category} to data flow`);
+                    get().validateAll();
+                    return;
+                }
+            }
+            
+            // Otherwise add to main components
             set((state) => {
                 const newComponents = [...state.components, component];
                 return { components: newComponents };
@@ -76,7 +145,29 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         },
 
         removeComponent: (id) => {
-            const comp = get().components.find(c => c.id === id);
+            const { currentDataFlowTaskId, components } = get();
+            const comp = components.find(c => c.id === id);
+            
+            // If in nested data flow, remove from nested data flow
+            if (currentDataFlowTaskId) {
+                const task = components.find(c => c.id === currentDataFlowTaskId);
+                if (task && task.nestedDataFlow) {
+                    const updatedNested = {
+                        components: task.nestedDataFlow.components.filter((c) => c.id !== id),
+                        connections: task.nestedDataFlow.connections.filter(
+                            (c) => c.source !== id && c.target !== id
+                        )
+                    };
+                    get().updateComponent(currentDataFlowTaskId, {
+                        nestedDataFlow: updatedNested
+                    });
+                    saveHistory(`Deleted ${comp?.category || 'component'} from data flow`);
+                    get().validateAll();
+                    return;
+                }
+            }
+            
+            // Otherwise remove from main components
             set((state) => {
                 const newComponents = state.components.filter((c) => c.id !== id);
                 const newConnections = state.connections.filter(
@@ -104,6 +195,31 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         },
 
         addConnection: (connection) => {
+            const { currentDataFlowTaskId, components } = get();
+            
+            // If in nested data flow, add to nested data flow
+            if (currentDataFlowTaskId) {
+                const task = components.find(c => c.id === currentDataFlowTaskId);
+                if (task && task.nestedDataFlow) {
+                    const exists = task.nestedDataFlow.connections.some(
+                        (c) => c.source === connection.source && c.target === connection.target
+                    );
+                    if (!exists) {
+                        const updatedNested = {
+                            components: task.nestedDataFlow.components,
+                            connections: [...task.nestedDataFlow.connections, connection]
+                        };
+                        get().updateComponent(currentDataFlowTaskId, {
+                            nestedDataFlow: updatedNested
+                        });
+                        saveHistory('Added connection to data flow');
+                        get().validateAll();
+                    }
+                    return;
+                }
+            }
+            
+            // Otherwise add to main connections
             set((state) => {
                 const exists = state.connections.some(
                     (c) => c.source === connection.source && c.target === connection.target
@@ -116,6 +232,26 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         },
 
         removeConnection: (id) => {
+            const { currentDataFlowTaskId, components } = get();
+            
+            // If in nested data flow, remove from nested data flow
+            if (currentDataFlowTaskId) {
+                const task = components.find(c => c.id === currentDataFlowTaskId);
+                if (task && task.nestedDataFlow) {
+                    const updatedNested = {
+                        components: task.nestedDataFlow.components,
+                        connections: task.nestedDataFlow.connections.filter((c) => c.id !== id)
+                    };
+                    get().updateComponent(currentDataFlowTaskId, {
+                        nestedDataFlow: updatedNested
+                    });
+                    saveHistory('Deleted connection from data flow');
+                    get().validateAll();
+                    return;
+                }
+            }
+            
+            // Otherwise remove from main connections
             set((state) => ({
                 connections: state.connections.filter((c) => c.id !== id),
             }));
@@ -294,6 +430,69 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
                 saveHistory('Loaded from shareable link');
                 get().validateAll();
             }
+        },
+
+        // Helper getters - return components/connections for current view
+        getCurrentComponents: () => {
+            const { viewMode, currentDataFlowTaskId, components } = get();
+            
+            // If viewing nested data flow, return nested components
+            if (currentDataFlowTaskId) {
+                const task = components.find(c => c.id === currentDataFlowTaskId);
+                if (task?.nestedDataFlow) {
+                    return task.nestedDataFlow.components;
+                }
+                return [];
+            }
+            
+            // If in control flow view, return only control flow tasks
+            if (viewMode === 'control-flow') {
+                return components.filter(c => c.type === 'control-flow-task');
+            }
+            
+            // Default: data flow view - return data flow components
+            return components.filter(c => 
+                c.type === 'source' || 
+                c.type === 'transformation' || 
+                c.type === 'destination'
+            );
+        },
+
+        getCurrentConnections: () => {
+            const { viewMode, currentDataFlowTaskId, connections, components } = get();
+            
+            // If viewing nested data flow, return nested connections
+            if (currentDataFlowTaskId) {
+                const task = components.find(c => c.id === currentDataFlowTaskId);
+                if (task?.nestedDataFlow) {
+                    return task.nestedDataFlow.connections;
+                }
+                return [];
+            }
+            
+            // If in control flow view, return only control flow connections
+            if (viewMode === 'control-flow') {
+                const controlFlowComponentIds = new Set(
+                    components.filter(c => c.type === 'control-flow-task').map(c => c.id)
+                );
+                return connections.filter(c => 
+                    controlFlowComponentIds.has(c.source) && 
+                    controlFlowComponentIds.has(c.target)
+                );
+            }
+            
+            // Default: data flow view - return data flow connections
+            const dataFlowComponentIds = new Set(
+                components.filter(c => 
+                    c.type === 'source' || 
+                    c.type === 'transformation' || 
+                    c.type === 'destination'
+                ).map(c => c.id)
+            );
+            return connections.filter(c => 
+                dataFlowComponentIds.has(c.source) && 
+                dataFlowComponentIds.has(c.target)
+            );
         }
     };
 });

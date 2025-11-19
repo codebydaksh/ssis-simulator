@@ -162,6 +162,11 @@ export function validateComponent(
 ): ValidationResult[] {
     const results: ValidationResult[] = [];
 
+    // Skip validation for Control Flow tasks - they have different rules
+    if (component.type === 'control-flow-task') {
+        return results; // Control Flow tasks don't need data flow validation
+    }
+
     const inputs = connections.filter(c => c.target === component.id);
     const outputs = connections.filter(c => c.source === component.id);
 

@@ -24,6 +24,7 @@ import { useCanvasStore } from '@/store/canvasStore';
 import SourceNode from '@/components/ssis/SourceNode';
 import TransformNode from '@/components/ssis/TransformNode';
 import DestinationNode from '@/components/ssis/DestinationNode';
+import ControlFlowTaskNode from '@/components/ssis/ControlFlowTaskNode';
 import ConnectionEdge from '@/components/ssis/ConnectionEdge';
 import { SSISComponent, Connection } from '@/lib/types';
 import { getComponentDefinition } from '@/lib/componentDefinitions';
@@ -34,6 +35,7 @@ const nodeTypes: NodeTypes = {
     source: SourceNode,
     transformation: TransformNode,
     destination: DestinationNode,
+    'control-flow-task': ControlFlowTaskNode,
 };
 
 const edgeTypes: EdgeTypes = {
@@ -44,8 +46,8 @@ const CanvasContent = () => {
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
     const { screenToFlowPosition } = useReactFlow();
     const {
-        components,
-        connections,
+        getCurrentComponents,
+        getCurrentConnections,
         selectedComponent,
         addComponent,
         updateComponent,
@@ -53,14 +55,20 @@ const CanvasContent = () => {
         addConnection,
         removeConnection,
         selectComponent,
+        navigateToDataFlow,
+        viewMode,
+        currentDataFlowTaskId,
     } = useCanvasStore();
+
+    const currentComponents = useMemo(() => getCurrentComponents(), [getCurrentComponents]);
+    const currentConnections = useMemo(() => getCurrentConnections(), [getCurrentConnections]);
 
     const highlights = useMemo(() => {
         if (!selectedComponent) return { upstream: [], downstream: [] };
-        return getFlowHighlights(selectedComponent, components, connections);
-    }, [selectedComponent, components, connections]);
+        return getFlowHighlights(selectedComponent, currentComponents, currentConnections);
+    }, [selectedComponent, currentComponents, currentConnections]);
 
-    const nodes: Node<SSISComponent>[] = useMemo(() => components.map((c) => {
+    const nodes: Node<SSISComponent>[] = useMemo(() => currentComponents.map((c) => {
         let highlightStatus: 'none' | 'upstream' | 'downstream' | 'selected' = 'none';
         if (selectedComponent && c.id === selectedComponent) {
             highlightStatus = 'selected';
@@ -77,9 +85,9 @@ const CanvasContent = () => {
             measured: c.measured,
             data: { ...c, highlightStatus },
         };
-    }), [components, highlights, selectedComponent]);
+    }), [currentComponents, highlights, selectedComponent]);
 
-    const edges: Edge<Connection>[] = useMemo(() => connections.map((c) => ({
+    const edges: Edge<Connection>[] = useMemo(() => currentConnections.map((c) => ({
         id: c.id,
         source: c.source,
         target: c.target,
@@ -88,7 +96,7 @@ const CanvasContent = () => {
         type: 'default',
         data: c,
         animated: !c.isValid,
-    })), [connections]);
+    })), [currentConnections]);
 
     const onNodesChange: OnNodesChange = useCallback(
         (changes: NodeChange[]) => {
@@ -161,7 +169,7 @@ const CanvasContent = () => {
 
             const newComponent: SSISComponent = {
                 id: uuidv4(),
-                type: type as 'source' | 'transformation' | 'destination',
+                type: type as 'source' | 'transformation' | 'destination' | 'control-flow-task',
                 category: category,
                 name: definition?.name || category,
                 icon: definition?.icon || '📦',
@@ -179,6 +187,16 @@ const CanvasContent = () => {
         [addComponent, screenToFlowPosition]
     );
 
+    const onNodeDoubleClick = useCallback(
+        (event: React.MouseEvent, node: Node<SSISComponent>) => {
+            // If double-clicking a Data Flow Task, navigate into it
+            if (node.data.category === 'DataFlowTask') {
+                navigateToDataFlow(node.id);
+            }
+        },
+        [navigateToDataFlow]
+    );
+
     return (
         <div className="w-full h-full" ref={reactFlowWrapper}>
             <ReactFlow
@@ -189,13 +207,17 @@ const CanvasContent = () => {
                 onConnect={onConnect}
                 onDragOver={onDragOver}
                 onDrop={onDrop}
+                onNodeDoubleClick={onNodeDoubleClick}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
                 fitView
                 snapToGrid
-                className="bg-gray-50"
+                className={viewMode === 'control-flow' ? 'bg-blue-50' : 'bg-gray-50'}
             >
-                <Background color="#E0E0E0" gap={20} />
+                <Background 
+                    color={viewMode === 'control-flow' ? '#B0D4FF' : '#E0E0E0'} 
+                    gap={20} 
+                />
                 <Controls />
                 <MiniMap />
             </ReactFlow>
