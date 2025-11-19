@@ -12,14 +12,9 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-    const [theme, setTheme] = useState<Theme>(() => {
-        if (typeof window !== 'undefined') {
-            const savedTheme = localStorage.getItem('theme') as Theme | null;
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            return savedTheme || (prefersDark ? 'dark' : 'light');
-        }
-        return 'light';
-    });
+    // Always start with 'light' for both server and client to avoid hydration mismatch
+    const [theme, setTheme] = useState<Theme>('light');
+    const [mounted, setMounted] = useState(false);
 
     const applyTheme = (newTheme: Theme) => {
         if (typeof document !== 'undefined') {
@@ -32,9 +27,23 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    // Hydrate theme from localStorage/preferences after mount (client-side only)
     useEffect(() => {
-        applyTheme(theme);
-    }, [theme]);
+        Promise.resolve().then(() => {
+            setMounted(true);
+            const savedTheme = localStorage.getItem('theme') as Theme | null;
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light');
+            setTheme(initialTheme);
+            applyTheme(initialTheme);
+        });
+    }, []);
+
+    useEffect(() => {
+        if (mounted) {
+            applyTheme(theme);
+        }
+    }, [theme, mounted]);
 
     const toggleTheme = () => {
         const newTheme = theme === 'light' ? 'dark' : 'light';
