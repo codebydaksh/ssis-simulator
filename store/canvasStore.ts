@@ -393,6 +393,29 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         loadFromStorage: () => {
             const data = loadFromLocalStorage();
             if (data) {
+                console.log('[DEBUG] Loading from localStorage:', {
+                    componentCount: data.components.length,
+                    componentTypes: data.components.map((c: SSISComponent) => ({
+                        name: c.name,
+                        type: c.type,
+                        category: c.category
+                    }))
+                });
+
+                const validTypes = ['source', 'transformation', 'destination', 'control-flow-task'];
+                const invalidComponents = data.components.filter((c: SSISComponent) => !validTypes.includes(c.type));
+
+                if (invalidComponents.length > 0) {
+                    console.error('[DEBUG] INVALID component types detected:', invalidComponents.map((c: SSISComponent) => ({
+                        name: c.name,
+                        type: c.type
+                    })));
+                    console.warn('[DEBUG] Clearing corrupted localStorage...');
+                    localStorage.removeItem('ssis-simulator-canvas');
+                    alert('Corrupted data detected in localStorage. It has been cleared. Please refresh the page.');
+                    return;
+                }
+
                 set({
                     components: data.components,
                     connections: data.connections,
@@ -490,7 +513,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
                 c.type === 'transformation' ||
                 c.type === 'destination'
             );
-            console.log('💧 Returning DATA FLOW:', dataFlow.length);
+            console.log('[DEBUG] Data flow filter results:', {
+                totalComponents: components.length,
+                dataFlowComponents: dataFlow.length,
+                allComponentTypes: components.map(c => ({ name: c.name, type: c.type })),
+                dataFlowNames: dataFlow.map(c => c.name),
+                rejectedComponents: components.filter(c => !['source', 'transformation', 'destination'].includes(c.type))
+                    .map(c => ({ name: c.name, type: c.type }))
+            });
             return dataFlow;
         },
 
