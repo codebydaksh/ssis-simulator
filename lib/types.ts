@@ -38,7 +38,7 @@ export interface SSISComponent {
     outputs: string[]; // IDs of target components
 
     // Component-specific
-    properties?: Record<string, any>;
+    properties?: Record<string, unknown>;
     outputSchema?: ColumnSchema[];
 
     // Validation state

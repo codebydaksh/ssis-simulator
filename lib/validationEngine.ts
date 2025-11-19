@@ -492,9 +492,10 @@ export function validateComponent(
     // Rule 31 moved to validateGlobalBestPractices to avoid duplicates
 
     // NEW RULE 32: Best Practice - Hardcoded connection strings (check properties)
+    const connectionString = component.properties?.connectionString;
     if ((component.type === 'source' || component.type === 'destination') && 
-        component.properties?.connectionString && 
-        component.properties.connectionString.includes('Data Source=')) {
+        typeof connectionString === 'string' && 
+        connectionString.includes('Data Source=')) {
         results.push({
             connectionId: component.id,
             isValid: true,
@@ -510,8 +511,9 @@ export function validateComponent(
     // Rule 34 moved to validateGlobalBestPractices to avoid duplicates
 
     // NEW RULE 35: Data Quality - Potential null value issues
-    if (component.category === 'DerivedColumn' && component.properties?.expression) {
-        const expr = component.properties.expression.toLowerCase();
+    const expression = component.properties?.expression;
+    if (component.category === 'DerivedColumn' && typeof expression === 'string') {
+        const expr = expression.toLowerCase();
         if (!expr.includes('isnull') && !expr.includes('coalesce') && !expr.includes('??')) {
             // Check if expression might produce nulls
             if (expr.includes('+') || expr.includes('/') || expr.includes('*')) {
@@ -544,8 +546,9 @@ export function validateComponent(
     // Rule 38 moved to validateGlobalBestPractices to avoid duplicates
 
     // NEW RULE 39: Data Quality - Date format inconsistencies
-    if (component.category === 'DerivedColumn' && component.properties?.expression) {
-        const expr = component.properties.expression.toLowerCase();
+    const expression39 = component.properties?.expression;
+    if (component.category === 'DerivedColumn' && typeof expression39 === 'string') {
+        const expr = expression39.toLowerCase();
         if (expr.includes('date') || expr.includes('datetime') || expr.includes('convert')) {
             results.push({
                 connectionId: component.id,
@@ -622,7 +625,7 @@ function validateGlobalBestPractices(
     // RULE 33: Best Practice - Missing data validation
     const hasValidation = dataFlowComponents.some(c => 
         c.category === 'ConditionalSplit' || 
-        (c.category === 'DerivedColumn' && c.properties?.expression?.includes('ISNULL')) ||
+        (c.category === 'DerivedColumn' && typeof c.properties?.expression === 'string' && c.properties.expression.includes('ISNULL')) ||
         c.category === 'Lookup'
     );
     if (!hasValidation) {
@@ -642,10 +645,12 @@ function validateGlobalBestPractices(
         c.properties?.incrementalLoad === true
     );
     if (!hasIncrementalPattern) {
-        const hasDateFilter = dataFlowComponents.some(c => 
-            c.properties?.query?.includes('WHERE') && 
-            (c.properties.query.includes('Date') || c.properties.query.includes('Modified'))
-        );
+        const hasDateFilter = dataFlowComponents.some(c => {
+            const query = c.properties?.query;
+            return typeof query === 'string' && 
+                query.includes('WHERE') && 
+                (query.includes('Date') || query.includes('Modified'));
+        });
         if (!hasDateFilter) {
             results.push({
                 connectionId: 'global-rule-34',
@@ -659,16 +664,17 @@ function validateGlobalBestPractices(
     }
 
     // RULE 37: Data Quality - Missing data cleansing steps
-    const hasCleansing = dataFlowComponents.some(c => 
-        c.category === 'DerivedColumn' && (
-            c.properties?.expression?.toLowerCase().includes('trim') ||
-            c.properties?.expression?.toLowerCase().includes('ltrim') ||
-            c.properties?.expression?.toLowerCase().includes('rtrim') ||
-            c.properties?.expression?.toLowerCase().includes('upper') ||
-            c.properties?.expression?.toLowerCase().includes('lower') ||
-            c.properties?.expression?.toLowerCase().includes('replace')
-        )
-    );
+    const hasCleansing = dataFlowComponents.some(c => {
+        const expr = c.properties?.expression;
+        return c.category === 'DerivedColumn' && typeof expr === 'string' && (
+            expr.toLowerCase().includes('trim') ||
+            expr.toLowerCase().includes('ltrim') ||
+            expr.toLowerCase().includes('rtrim') ||
+            expr.toLowerCase().includes('upper') ||
+            expr.toLowerCase().includes('lower') ||
+            expr.toLowerCase().includes('replace')
+        );
+    });
     if (!hasCleansing && dataFlowComponents.some(c => c.type === 'source' && c.category === 'FlatFileSource')) {
         results.push({
             connectionId: 'global-rule-37',
@@ -761,7 +767,6 @@ function validateGlobalBestPractices(
         
         if (componentsWithoutErrorOutput.length > 0) {
             // Only show one warning, not one per component
-            const firstComponent = componentsWithoutErrorOutput[0];
             results.push({
                 connectionId: 'global-rule-40',
                 isValid: true,

@@ -172,7 +172,7 @@ const CanvasContent = () => {
                 type: type as 'source' | 'transformation' | 'destination' | 'control-flow-task',
                 category: category,
                 name: definition?.name || category,
-                icon: definition?.icon || '📦',
+                icon: definition?.icon || '',
                 description: definition?.description || '',
                 useCases: definition?.useCases || [],
                 dataType: definition?.dataType || 'structured',

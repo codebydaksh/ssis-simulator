@@ -4,7 +4,6 @@ import { Connection } from '@/lib/types';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
 const ConnectionEdge = ({
-    id,
     sourceX,
     sourceY,
     targetX,

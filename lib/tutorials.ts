@@ -93,7 +93,7 @@ export const TUTORIALS: Tutorial[] = [
             {
                 id: 'connect-destination',
                 title: 'Step 5: Connect to Destination',
-                message: 'Connect the Derived Column to the OLE DB Destination. This completes your data flow: Source → Transform → Destination.',
+                message: 'Connect the Derived Column to the OLE DB Destination. This completes your data flow: Source  Transform  Destination.',
                 action: {
                     type: 'connect',
                     description: 'Connect transformation to destination'
@@ -172,7 +172,7 @@ export const TUTORIALS: Tutorial[] = [
             {
                 id: 'connect-all',
                 title: 'Connect the Pipeline',
-                message: 'Connect: Flat File Source → Data Conversion → Derived Column → Destination. This shows a typical data cleaning pipeline.',
+                message: 'Connect: Flat File Source  Data Conversion  Derived Column  Destination. This shows a typical data cleaning pipeline.',
                 action: {
                     type: 'connect',
                     description: 'Connect all components'
@@ -224,7 +224,7 @@ export const TUTORIALS: Tutorial[] = [
             {
                 id: 'explain',
                 title: 'Error Handling Pattern',
-                message: 'The pattern: Source → Lookup → Conditional Split → [Valid Data Destination] and [Error Log Destination]. This routes errors to a separate destination for review.',
+                message: 'The pattern: Source  Lookup  Conditional Split  [Valid Data Destination] and [Error Log Destination]. This routes errors to a separate destination for review.',
                 canSkip: true
             },
             {

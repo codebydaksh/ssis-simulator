@@ -130,7 +130,7 @@ function transformData(
 
         case 'DerivedColumn':
             // Simulate derived column calculation
-            return sampleData.map((row, idx) => {
+            return sampleData.map((row) => {
                 const derived: SampleRow = { ...row };
                 // Add a calculated column
                 if (keys.includes('FirstName') && keys.includes('LastName')) {

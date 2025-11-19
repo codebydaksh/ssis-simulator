@@ -17,8 +17,9 @@ export default function TutorialDialog({ tutorial, isOpen, onClose, onComplete }
 
     useEffect(() => {
         if (tutorial && isOpen) {
-            setCurrentStepIndex(0);
-            setCompletedSteps(new Set());
+            // Reset tutorial state when opening
+            setCurrentStepIndex(() => 0);
+            setCompletedSteps(() => new Set());
         }
     }, [tutorial, isOpen]);
 
@@ -69,7 +70,7 @@ export default function TutorialDialog({ tutorial, isOpen, onClose, onComplete }
                     <div>
                         <h2 className="text-lg font-bold text-gray-900 dark:text-white">{tutorial.name}</h2>
                         <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                            Step {currentStepIndex + 1} of {totalSteps} • {tutorial.estimatedTime}
+                            Step {currentStepIndex + 1} of {totalSteps}  {tutorial.estimatedTime}
                         </p>
                     </div>
                     <button

@@ -116,7 +116,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         clipboard: null,
 
         addComponent: (component) => {
-            const { viewMode, currentDataFlowTaskId, components } = get();
+            const { currentDataFlowTaskId, components } = get();
             
             // If in nested data flow, add to nested data flow
             if (currentDataFlowTaskId) {
@@ -274,7 +274,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         },
 
         pasteComponent: () => {
-            const { clipboard, components } = get();
+            const { clipboard } = get();
             if (!clipboard) return;
 
             const newId = uuidv4();

@@ -69,7 +69,6 @@ export function analyzeAndSuggest(
 
     // Pattern 3: CSV to Database without Data Conversion
     const csvSources = components.filter(c => c.category === 'FlatFileSource');
-    const dbDests = components.filter(c => c.category === 'OLEDBDestination');
 
     csvSources.forEach(csv => {
         const connectedTo = connections.filter(c => c.source === csv.id);

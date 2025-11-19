@@ -37,7 +37,6 @@ export function simulatePerformance(
     totalRows: number
 ): SimulationResult {
     const metrics: ComponentMetric[] = [];
-    let maxDuration = 0;
     let totalMemory = 50; // Base memory overhead in MB
     let slowestComponentId: string | null = null;
     let slowestSpeed = Infinity;

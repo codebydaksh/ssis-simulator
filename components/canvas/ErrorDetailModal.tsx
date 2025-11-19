@@ -63,7 +63,7 @@ export default function ErrorDetailModal({ error, isOpen, onClose }: ErrorDetail
         }
         
         if (message.includes('circular dependency')) {
-            return 'A circular dependency occurs when data flows in a loop (Component A → Component B → Component A). SSIS data flows must be acyclic (no loops) because data can only flow forward through the pipeline.';
+            return 'A circular dependency occurs when data flows in a loop (Component A  Component B  Component A). SSIS data flows must be acyclic (no loops) because data can only flow forward through the pipeline.';
         }
         
         if (message.includes('source') && message.includes('input')) {
@@ -117,7 +117,7 @@ export default function ErrorDetailModal({ error, isOpen, onClose }: ErrorDetail
             return [
                 '1. Add a Data Conversion transformation between the Flat File Source and OLEDB Destination',
                 '2. Configure the Data Conversion to convert text columns to appropriate data types (e.g., string to integer, string to decimal)',
-                '3. Connect: Flat File Source → Data Conversion → OLEDB Destination',
+                '3. Connect: Flat File Source  Data Conversion  OLEDB Destination',
                 '4. Map the converted columns to the destination table columns'
             ];
         }
@@ -127,7 +127,7 @@ export default function ErrorDetailModal({ error, isOpen, onClose }: ErrorDetail
                 '1. Add a Sort transformation before each input to the Merge Join',
                 '2. Configure each Sort to sort by the join key columns',
                 '3. Ensure both Sort components use the same sort order (ASC or DESC)',
-                '4. Connect: Source 1 → Sort 1 → Merge Join, Source 2 → Sort 2 → Merge Join'
+                '4. Connect: Source 1  Sort 1  Merge Join, Source 2  Sort 2  Merge Join'
             ];
         }
         

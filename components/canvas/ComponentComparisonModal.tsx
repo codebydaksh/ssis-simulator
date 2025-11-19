@@ -148,7 +148,7 @@ export default function ComponentComparisonModal({ isOpen, onClose }: ComponentC
                                                 {isSelected2 && <span className="text-xs">Component 2</span>}
                                             </div>
                                             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                                {comp.type} • {comp.dataType}
+                                                {comp.type}  {comp.dataType}
                                             </div>
                                         </button>
                                     );
