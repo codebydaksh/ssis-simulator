@@ -116,28 +116,43 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         clipboard: null,
 
         addComponent: (component) => {
-            const { currentDataFlowTaskId, components } = get();
+            const { currentDataFlowTaskId, components, viewMode } = get();
+
+            console.log('🔧 ADD COMPONENT DEBUG:', {
+                componentName: component.name,
+                componentType: component.type,
+                componentCategory: component.category,
+                currentDataFlowTaskId,
+                viewMode,
+                totalComponentsCount: components.length
+            });
 
             // If in nested data flow, add to nested data flow
             if (currentDataFlowTaskId) {
+                console.log('📌 Adding to NESTED data flow task:', currentDataFlowTaskId);
                 const task = components.find(c => c.id === currentDataFlowTaskId);
                 if (task && task.nestedDataFlow) {
                     const updatedNested = {
                         components: [...task.nestedDataFlow.components, component],
                         connections: task.nestedDataFlow.connections
                     };
+                    console.log('✅ Component added to nested flow. New nested count:', updatedNested.components.length);
                     get().updateComponent(currentDataFlowTaskId, {
                         nestedDataFlow: updatedNested
                     });
                     saveHistory(`Added ${component.category} to data flow`);
                     get().validateAll();
                     return;
+                } else {
+                    console.error('❌ Nested task not found or has no nestedDataFlow property');
                 }
             }
 
             // Otherwise add to main components
+            console.log('📌 Adding to ROOT level components');
             set((state) => {
                 const newComponents = [...state.components, component];
+                console.log('✅ Component added to root. New count:', newComponents.length);
                 return { components: newComponents };
             });
             saveHistory(`Added ${component.category}`);
@@ -445,26 +460,38 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         getCurrentComponents: () => {
             const { viewMode, currentDataFlowTaskId, components } = get();
 
+            console.log('👀 GET CURRENT COMPONENTS:', {
+                viewMode,
+                currentDataFlowTaskId,
+                totalComponents: components.length
+            });
+
             // If viewing nested data flow, return nested components
             if (currentDataFlowTaskId) {
                 const task = components.find(c => c.id === currentDataFlowTaskId);
                 if (task?.nestedDataFlow) {
+                    console.log('📦 Returning NESTED components:', task.nestedDataFlow.components.length);
                     return task.nestedDataFlow.components;
                 }
+                console.log('⚠️ No nested flow. Returning empty.');
                 return [];
             }
 
             // If in control flow view, return only control flow tasks
             if (viewMode === 'control-flow') {
-                return components.filter(c => c.type === 'control-flow-task');
+                const cf = components.filter(c => c.type === 'control-flow-task');
+                console.log('🎛️ Returning CONTROL FLOW:', cf.length);
+                return cf;
             }
 
             // Default: data flow view - return data flow components
-            return components.filter(c =>
+            const dataFlow = components.filter(c =>
                 c.type === 'source' ||
                 c.type === 'transformation' ||
                 c.type === 'destination'
             );
+            console.log('💧 Returning DATA FLOW:', dataFlow.length);
+            return dataFlow;
         },
 
         getCurrentConnections: () => {
