@@ -316,9 +316,49 @@ export default function PropertiesPanel() {
 
         // Databricks Components
         if (platform === 'databricks') {
+            // Cluster Selection - Show for all components that need clusters
+            const componentsNeedingCluster = ['notebook', 'dataSource', 'transformation', 'output'].includes(component.type);
+            const availableClusters = components.filter(c => c.type === 'cluster');
+            
+            // Helper to render cluster selector
+            const renderClusterSelector = () => {
+                if (!componentsNeedingCluster) return null;
+                
+                return (
+                    <div className="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                        <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                            Cluster <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                            value={localProperties.clusterId || ''}
+                            onChange={(e) => updateProperty('clusterId', e.target.value)}
+                            className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        >
+                            <option value="">-- Select a Cluster --</option>
+                            {availableClusters.map((cluster) => (
+                                <option key={cluster.id} value={cluster.id}>
+                                    {cluster.name}
+                                </option>
+                            ))}
+                        </select>
+                        {availableClusters.length === 0 && (
+                            <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                                No clusters found. Add a cluster from the Clusters section in the toolbox.
+                            </p>
+                        )}
+                        {localProperties.clusterId && (
+                            <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                Cluster assigned successfully
+                            </p>
+                        )}
+                    </div>
+                );
+            };
+            
             if (component.type === 'notebook') {
                 return (
                     <div className="space-y-4">
+                        {renderClusterSelector()}
                         <div>
                             <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
                                 Language
@@ -355,6 +395,7 @@ export default function PropertiesPanel() {
                 if (component.category === 'DeltaTableSource') {
                     return (
                         <div className="space-y-4">
+                            {renderClusterSelector()}
                             <div>
                                 <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
                                     Catalog
@@ -400,6 +441,7 @@ export default function PropertiesPanel() {
                 if (component.category === 'DeltaTableSink') {
                     return (
                         <div className="space-y-4">
+                            {renderClusterSelector()}
                             <div>
                                 <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
                                     Catalog
@@ -454,7 +496,20 @@ export default function PropertiesPanel() {
                     );
                 }
             }
-
+            
+            // For transformations and other components that need clusters
+            if (componentsNeedingCluster) {
+                return (
+                    <div className="space-y-4">
+                        {renderClusterSelector()}
+                        <div className="text-sm text-gray-500 dark:text-gray-400 italic">
+                            Configure additional properties for this Databricks component.
+                        </div>
+                    </div>
+                );
+            }
+            
+            // For Databricks components that don't need clusters (like clusters themselves)
             return (
                 <div className="text-sm text-gray-500 dark:text-gray-400 italic">
                     Configure properties for this Databricks component.
