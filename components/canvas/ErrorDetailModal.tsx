@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { ValidationResult } from '@/lib/types';
+import { useCanvasStore } from '@/store/canvasStore';
 import { X, AlertCircle, AlertTriangle, Info, Lightbulb, BookOpen } from 'lucide-react';
 
 interface ErrorDetailModalProps {
@@ -11,6 +12,7 @@ interface ErrorDetailModalProps {
 }
 
 export default function ErrorDetailModal({ error, isOpen, onClose }: ErrorDetailModalProps) {
+    const { platform } = useCanvasStore();
     if (!isOpen || !error) return null;
 
     const getSeverityIcon = () => {
@@ -106,7 +108,8 @@ export default function ErrorDetailModal({ error, isOpen, onClose }: ErrorDetail
             return 'Duplicate rows can cause data quality issues. The standard pattern for deduplication is: Sort by the business key, then use Aggregate to keep only one row per key (typically the first or last based on a date field).';
         }
 
-        return 'This validation rule checks for common SSIS best practices and potential issues. Review the suggestion and apply the recommended fix to improve your pipeline.';
+        const platformName = platform === 'databricks' ? 'Databricks' : platform === 'adf' ? 'ADF' : 'SSIS';
+        return `This validation rule checks for common ${platformName} best practices and potential issues. Review the suggestion and apply the recommended fix to improve your pipeline.`;
     };
 
     const getFixSteps = (): string[] => {

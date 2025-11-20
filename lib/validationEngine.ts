@@ -1,4 +1,5 @@
 import { validateADFPipeline } from './adfValidationEngine';
+import { validateDatabricksPipeline } from './databricksValidationEngine';
 import { SSISComponent, Connection, ValidationResult, PlatformType, ADFComponent } from './types';
 
 // --- Helper: Check for Circular Dependency ---
@@ -789,6 +790,10 @@ export function validateGraph(
 ): ValidationResult[] {
     if (platform === 'adf') {
         return validateADFPipeline(components as ADFComponent[], connections);
+    }
+
+    if (platform === 'databricks') {
+        return validateDatabricksPipeline(components, connections);
     }
 
     let allResults: ValidationResult[] = [];

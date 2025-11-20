@@ -9,10 +9,11 @@ import TemplateSelector from '@/components/canvas/TemplateSelector';
 import SuggestionsPanel from '@/components/canvas/SuggestionsPanel';
 import PerformanceModal from '@/components/canvas/PerformanceModal';
 import DataPreviewModal from '@/components/canvas/DataPreviewModal';
+import DatabricksDataPreviewModal from '@/components/canvas/DatabricksDataPreviewModal';
 import ComponentComparisonModal from '@/components/canvas/ComponentComparisonModal';
 import TutorialSelector from '@/components/canvas/TutorialSelector';
 import { useCanvasStore } from '@/store/canvasStore';
-import { Download, Upload, Trash2, Save, Undo, Redo, Activity, Moon, Sun, Share2, Eye, GitCompare, Workflow, Database, ArrowLeft, Cloud } from 'lucide-react';
+import { Download, Upload, Trash2, Save, Undo, Redo, Activity, Moon, Sun, Share2, Eye, GitCompare, Workflow, Database, ArrowLeft, Cloud, Sparkles } from 'lucide-react';
 import { useTheme } from '@/lib/themeContext';
 import { encodePipelineToURL, copyToClipboard } from '@/lib/shareableLinks';
 
@@ -219,6 +220,17 @@ export default function CanvasPage() {
                             <Cloud className="w-3 h-3" />
                             <span>ADF</span>
                         </button>
+                        <button
+                            onClick={() => setPlatform('databricks')}
+                            className={`flex items-center space-x-1 px-3 py-1 rounded text-xs transition-colors ${platform === 'databricks'
+                                ? 'bg-orange-600 text-white'
+                                : 'text-gray-300 hover:text-white'
+                                }`}
+                            title="Switch to Azure Databricks Mode"
+                        >
+                            <Sparkles className="w-3 h-3" />
+                            <span>Databricks</span>
+                        </button>
                     </div>
 
                     {/* Breadcrumb */}
@@ -390,10 +402,19 @@ export default function CanvasPage() {
                         isOpen={isPerformanceModalOpen}
                         onClose={() => setIsPerformanceModalOpen(false)}
                     />
-                    <DataPreviewModal
-                        isOpen={isDataPreviewModalOpen}
-                        onClose={() => setIsDataPreviewModalOpen(false)}
-                    />
+                    {platform === 'databricks' ? (
+                        <DatabricksDataPreviewModal
+                            isOpen={isDataPreviewModalOpen}
+                            onClose={() => setIsDataPreviewModalOpen(false)}
+                            components={allComponents}
+                            connections={connections}
+                        />
+                    ) : (
+                        <DataPreviewModal
+                            isOpen={isDataPreviewModalOpen}
+                            onClose={() => setIsDataPreviewModalOpen(false)}
+                        />
+                    )}
                     <ComponentComparisonModal
                         isOpen={isComponentComparisonModalOpen}
                         onClose={() => setIsComponentComparisonModalOpen(false)}

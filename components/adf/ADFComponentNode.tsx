@@ -9,20 +9,6 @@ type ADFNodeProps = NodeProps<Node<SSISComponent>>;
 const ADFComponentNode = ({ data, selected }: ADFNodeProps) => {
     const { name, category, icon, hasError, errorMessage, type, highlightStatus } = data;
 
-    // Determine colors based on type (ADF Style)
-    const getTypeStyles = () => {
-        switch (type) {
-            case 'data-movement': // Copy Data
-                return 'bg-teal-50 border-teal-500 text-teal-900';
-            case 'transformation': // Data Flow
-                return 'bg-blue-50 border-blue-500 text-blue-900';
-            case 'control-flow': // Web, Wait, etc.
-                return 'bg-slate-50 border-slate-500 text-slate-900';
-            default:
-                return 'bg-gray-50 border-gray-500 text-gray-900';
-        }
-    };
-
     const getIconContainerStyles = () => {
         switch (type) {
             case 'data-movement': return 'bg-teal-100 text-teal-600';

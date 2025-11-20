@@ -1,4 +1,4 @@
-export type ComponentType = 'source' | 'transformation' | 'destination' | 'control-flow-task' | 'data-movement' | 'control-flow' | 'other';
+export type ComponentType = 'source' | 'transformation' | 'destination' | 'control-flow-task' | 'data-movement' | 'control-flow' | 'other' | 'notebook' | 'dataSource' | 'output' | 'orchestration' | 'cluster';
 export type DataType = 'structured' | 'text' | 'mixed' | 'nested';
 export type Severity = 'error' | 'warning' | 'info';
 export type ViewMode = 'data-flow' | 'control-flow';
@@ -75,7 +75,7 @@ export interface Connection {
     [key: string]: unknown;
 }
 
-export type PlatformType = 'ssis' | 'adf';
+export type PlatformType = 'ssis' | 'adf' | 'databricks';
 
 export type ADFComponentType = 'data-movement' | 'transformation' | 'control-flow' | 'other';
 
@@ -103,4 +103,26 @@ export interface ADFComponent extends Omit<SSISComponent, 'type' | 'category'> {
         activities: ADFComponent[];
     }[];
     defaultActivities?: ADFComponent[];
+}
+
+export type DatabricksComponentType = 'notebook' | 'dataSource' | 'transformation' | 'output' | 'orchestration' | 'cluster';
+
+export interface DatabricksComponent extends Omit<SSISComponent, 'type' | 'category'> {
+    type: DatabricksComponentType;
+    category: string; // e.g., 'PythonNotebook', 'DeltaTableSource', 'DataFrameTransform'
+
+    // Databricks specific properties
+    clusterId?: string;
+    sparkCode?: string; // Generated Spark code preview
+    estimatedCost?: number; // DBU cost estimation
+    runtimeVersion?: string; // Databricks Runtime version
+    libraries?: Array<{
+        type: 'pypi' | 'maven' | 'jar' | 'cran' | 'egg' | 'whl';
+        name: string;
+        version?: string;
+    }>;
+    catalog?: string; // Unity Catalog
+    schema?: string; // Unity Catalog schema
+    table?: string; // Unity Catalog table
+    notebookLanguage?: 'python' | 'scala' | 'sql' | 'r' | 'markdown';
 }

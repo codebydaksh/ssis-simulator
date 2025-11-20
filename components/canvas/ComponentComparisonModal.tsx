@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { getComponentDefinition, COMPONENT_DEFINITIONS } from '@/lib/componentDefinitions';
 import { getADFComponentDefinition, ADF_COMPONENT_DEFINITIONS } from '@/lib/adfComponentDefinitions';
+import { getDatabricksComponentDefinition, DATABRICKS_COMPONENT_DEFINITIONS } from '@/lib/databricksComponentDefinitions';
 import { useCanvasStore } from '@/store/canvasStore';
 import { X, Search, ArrowRight } from 'lucide-react';
 
@@ -18,13 +19,15 @@ export default function ComponentComparisonModal({ isOpen, onClose }: ComponentC
     const { platform } = useCanvasStore();
 
     const currentDefinitions = useMemo(() => {
-        return platform === 'adf' ? ADF_COMPONENT_DEFINITIONS : COMPONENT_DEFINITIONS;
+        if (platform === 'adf') return ADF_COMPONENT_DEFINITIONS;
+        if (platform === 'databricks') return DATABRICKS_COMPONENT_DEFINITIONS;
+        return COMPONENT_DEFINITIONS;
     }, [platform]);
 
     const filteredComponents = useMemo(() => {
         if (!searchTerm) return currentDefinitions;
         const term = searchTerm.toLowerCase();
-        return currentDefinitions.filter((comp: any) =>
+        return currentDefinitions.filter((comp: { name: string; description: string; category: string; useCases: string[] }) =>
             comp.name.toLowerCase().includes(term) ||
             comp.description.toLowerCase().includes(term) ||
             comp.category.toLowerCase().includes(term) ||
@@ -34,12 +37,16 @@ export default function ComponentComparisonModal({ isOpen, onClose }: ComponentC
 
     const def1 = useMemo(() => {
         if (!component1) return null;
-        return platform === 'adf' ? getADFComponentDefinition(component1) : getComponentDefinition(component1);
+        if (platform === 'adf') return getADFComponentDefinition(component1);
+        if (platform === 'databricks') return getDatabricksComponentDefinition(component1);
+        return getComponentDefinition(component1);
     }, [component1, platform]);
 
     const def2 = useMemo(() => {
         if (!component2) return null;
-        return platform === 'adf' ? getADFComponentDefinition(component2) : getComponentDefinition(component2);
+        if (platform === 'adf') return getADFComponentDefinition(component2);
+        if (platform === 'databricks') return getDatabricksComponentDefinition(component2);
+        return getComponentDefinition(component2);
     }, [component2, platform]);
 
     const getComparisonData = () => {
@@ -112,10 +119,80 @@ export default function ComponentComparisonModal({ isOpen, onClose }: ComponentC
             'DatabricksNotebook': 'Performance depends on cluster configuration and code efficiency. Startup time applies.',
             'ForEach': 'Can run in parallel (batch count) or sequentially. Parallel is faster but harder to debug.',
             'WebActivity': 'Lightweight, but depends on external API response time. Timeout limits apply.',
-            'GetMetadata': 'Fast metadata retrieval. Does not read file content, only attributes.'
+            'GetMetadata': 'Fast metadata retrieval. Does not read file content, only attributes.',
+
+            // Databricks
+            'AllPurposeCluster': 'Stays running until terminated. Good for iterative development. Higher cost for long-running clusters.',
+            'JobCluster': 'Terminated after job completion. More cost-effective for scheduled workloads. Startup time applies.',
+            'SQLWarehouse': 'Serverless option available. Photon engine provides 2-3x performance improvement for SQL workloads.',
+            'DeltaTableSource': 'Columnar format with predicate pushdown. Z-ordering improves filtered query performance by 20-40%.',
+            'DeltaTableSink': 'Optimized writes with auto-compaction. Partitioning improves query performance significantly.',
+            'KafkaStream': 'Low-latency streaming. Checkpointing adds overhead but enables fault tolerance.',
+            'AutoLoader': 'Automatic schema inference adds overhead. Use for schema evolution scenarios.',
+            'DataFrameTransform': 'Lazy evaluation. Performance depends on operations (joins, groupBy are expensive).',
+            'DeltaLakeMerge': 'Optimized for incremental updates. More efficient than full table scans for updates.',
+            'SparkSQLQuery': 'Catalyst optimizer provides automatic query optimization. Window functions can be expensive.',
+            'MLflowModelTraining': 'Performance depends on algorithm and data size. Distributed training scales horizontally.',
+            'MLflowModelServing': 'Batch inference is faster. Real-time serving has latency overhead.',
+            'DeltaLiveTables': 'Declarative execution with automatic optimization. Overhead for data quality checks.'
         };
 
         return perfMap[category] || 'Performance depends on data volume and component configuration.';
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const getDatabricksComparison = (category1: string, category2: string) => {
+        const comparisons: Record<string, { differences: string[]; recommendation?: string }> = {
+            'AllPurposeCluster-JobCluster': {
+                differences: [
+                    'All-Purpose: Stays running until manually terminated',
+                    'Job Cluster: Automatically terminated after job completion',
+                    'All-Purpose: Higher cost for long-running workloads',
+                    'Job Cluster: More cost-effective for scheduled jobs'
+                ],
+                recommendation: 'Use Job Clusters for production workloads, All-Purpose for development and exploration.'
+            },
+            'DeltaTableSink-AzureBlobStorageSink': {
+                differences: [
+                    'Delta: ACID transactions, time travel, schema evolution',
+                    'Blob Storage: Simple file storage, no transaction support',
+                    'Delta: Optimized for analytics queries',
+                    'Blob Storage: Lower cost, good for archival'
+                ],
+                recommendation: 'Use Delta for production analytics tables, Blob Storage for raw file storage.'
+            },
+            'DataFrameTransform-SparkSQLQuery': {
+                differences: [
+                    'DataFrame: Programmatic API, type-safe, IDE support',
+                    'Spark SQL: SQL syntax, easier for SQL developers',
+                    'DataFrame: More flexible for complex logic',
+                    'Spark SQL: Better for ad-hoc queries and reporting'
+                ],
+                recommendation: 'Use DataFrame for complex transformations, Spark SQL for ad-hoc queries and reporting.'
+            },
+            'KafkaStream-AutoLoader': {
+                differences: [
+                    'Kafka: Real-time streaming, low latency',
+                    'Auto Loader: File-based streaming, higher latency',
+                    'Kafka: Event-driven architecture',
+                    'Auto Loader: Schema inference and evolution'
+                ],
+                recommendation: 'Use Kafka for real-time event streaming, Auto Loader for cloud storage file ingestion.'
+            },
+            'MLflowModelTraining-MLflowModelServing': {
+                differences: [
+                    'Training: Builds models from data',
+                    'Serving: Deploys models for inference',
+                    'Training: Requires labeled data',
+                    'Serving: Requires registered model'
+                ],
+                recommendation: 'Use Training to build models, Serving to deploy them for production inference.'
+            }
+        };
+
+        const key1 = `${category1}-${category2}`;
+        const key2 = `${category2}-${category1}`;
+        return comparisons[key1] || comparisons[key2] || null;
     };
 
     if (!isOpen) return null;

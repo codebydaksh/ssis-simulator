@@ -1,11 +1,34 @@
 import { SSISComponent, Connection } from './types';
 
+interface ARMParameter {
+    type: string;
+    metadata?: {
+        description?: string;
+    };
+}
+
+interface ARMResource {
+    name: string;
+    type: string;
+    apiVersion: string;
+    properties: Record<string, unknown>;
+    dependsOn?: unknown[];
+}
+
 interface ARMTemplate {
     $schema: string;
     contentVersion: string;
-    parameters: Record<string, any>;
-    variables: Record<string, any>;
-    resources: any[];
+    parameters: Record<string, ARMParameter>;
+    variables: Record<string, unknown>;
+    resources: ARMResource[];
+}
+
+interface ADFActivity {
+    name: string;
+    type: string;
+    dependsOn?: Array<{ activity: string; dependencyConditions: string[] }>;
+    userProperties?: unknown[];
+    typeProperties?: Record<string, unknown>;
 }
 
 export function generateARMTemplate(components: SSISComponent[], connections: Connection[]): string {
@@ -42,7 +65,7 @@ export function generateARMTemplate(components: SSISComponent[], connections: Co
     return JSON.stringify(armTemplate, null, 4);
 }
 
-function mapComponentToActivity(component: SSISComponent, connections: Connection[]): any {
+function mapComponentToActivity(component: SSISComponent, connections: Connection[]): ADFActivity {
     // Find upstream dependencies
     const upstreamConnections = connections.filter(c => c.target === component.id);
     const dependsOn = upstreamConnections.map(c => {
@@ -94,7 +117,7 @@ function mapCategoryToType(category: string): string {
     return map[category] || 'Container';
 }
 
-function mapTypeProperties(component: SSISComponent): any {
+function mapTypeProperties(component: SSISComponent): Record<string, unknown> {
     const props = component.properties || {};
 
     switch (component.category) {

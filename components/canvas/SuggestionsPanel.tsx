@@ -7,7 +7,7 @@ import { analyzeAndSuggest, OptimizationSuggestion, getTemplateReference } from 
 import { Lightbulb, X, AlertTriangle, Info, Zap, CheckCircle2 } from 'lucide-react';
 
 export default function SuggestionsPanel() {
-    const { components, connections } = useCanvasStore();
+    const { components, connections, platform } = useCanvasStore();
     const [isOpen, setIsOpen] = useState(false);
     const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
 
@@ -158,7 +158,7 @@ export default function SuggestionsPanel() {
 
                     {/* Footer */}
                     <div className="p-3 border-t bg-gray-50 text-xs text-gray-600 rounded-b-lg">
-                        <p>Suggestions are based on SSIS best practices and your templates</p>
+                        <p>Suggestions are based on {platform === 'databricks' ? 'Databricks' : platform === 'adf' ? 'ADF' : 'SSIS'} best practices and your templates</p>
                     </div>
                 </div>
             )}

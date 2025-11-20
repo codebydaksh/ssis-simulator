@@ -408,13 +408,17 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
 
         saveToStorage: () => {
             const { components, connections, platform } = get();
-            const key = platform === 'adf' ? 'adf-simulator-canvas' : 'ssis-simulator-canvas';
+            const key = platform === 'adf' ? 'adf-simulator-canvas' : 
+                       platform === 'databricks' ? 'databricks-workspace' : 
+                       'ssis-simulator-canvas';
             saveToLocalStorage(components, connections, key);
         },
 
         loadFromStorage: () => {
             const { platform } = get();
-            const key = platform === 'adf' ? 'adf-simulator-canvas' : 'ssis-simulator-canvas';
+            const key = platform === 'adf' ? 'adf-simulator-canvas' : 
+                       platform === 'databricks' ? 'databricks-workspace' : 
+                       'ssis-simulator-canvas';
             const data = loadFromLocalStorage(key);
 
             if (data) {
@@ -436,6 +440,24 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
 
                     if (invalidComponents.length > 0) {
                         console.error('[DEBUG] INVALID component types detected:', invalidComponents.map((c: SSISComponent) => ({
+                            name: c.name,
+                            type: c.type
+                        })));
+                        console.warn('[DEBUG] Clearing corrupted localStorage...');
+                        localStorage.removeItem(key);
+                        alert('Corrupted data detected in localStorage. It has been cleared. Please refresh the page.');
+                        set({ components: [], connections: [], errors: [], selectedComponent: null });
+                        return;
+                    }
+                }
+
+                // Validation for Databricks components
+                if (platform === 'databricks') {
+                    const validTypes = ['notebook', 'dataSource', 'transformation', 'output', 'orchestration', 'cluster'];
+                    const invalidComponents = data.components.filter((c: SSISComponent) => !validTypes.includes(c.type));
+
+                    if (invalidComponents.length > 0) {
+                        console.error('[DEBUG] INVALID Databricks component types detected:', invalidComponents.map((c: SSISComponent) => ({
                             name: c.name,
                             type: c.type
                         })));
@@ -477,6 +499,9 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
                 link.click();
                 document.body.removeChild(link);
                 URL.revokeObjectURL(url);
+            } else if (platform === 'databricks') {
+                // Databricks export will be handled by databricksExporter.ts
+                exportToJSON(components, connections);
             } else {
                 exportToJSON(components, connections);
             }
@@ -596,6 +621,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
                 return adfComponents;
             }
 
+            // Databricks Platform Logic
+            if (platform === 'databricks') {
+                // In Databricks, show all Databricks component types
+                const databricksComponents = components.filter(c =>
+                    ['notebook', 'dataSource', 'transformation', 'output', 'orchestration', 'cluster'].includes(c.type)
+                );
+                return databricksComponents;
+            }
+
             // SSIS Platform Logic
             // If in control flow view, return only control flow tasks
             if (viewMode === 'control-flow') {
@@ -644,6 +678,20 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
                 return connections.filter(c =>
                     adfComponentIds.has(c.source) &&
                     adfComponentIds.has(c.target)
+                );
+            }
+
+            // Databricks Platform Logic
+            if (platform === 'databricks') {
+                // Return all connections between Databricks components
+                const databricksComponentIds = new Set(
+                    components.filter(c =>
+                        ['notebook', 'dataSource', 'transformation', 'output', 'orchestration', 'cluster'].includes(c.type)
+                    ).map(c => c.id)
+                );
+                return connections.filter(c =>
+                    databricksComponentIds.has(c.source) &&
+                    databricksComponentIds.has(c.target)
                 );
             }
 

@@ -237,8 +237,9 @@ function simulateADFPerformance(
                 break;
 
             case 'Wait':
-                const props = (comp.properties || {}) as Record<string, any>;
-                duration = parseInt(String(props.waitTimeInSeconds || 1));
+                const props = (comp.properties || {}) as Record<string, unknown>;
+                const waitTime = props.waitTimeInSeconds;
+                duration = typeof waitTime === 'number' ? waitTime : (typeof waitTime === 'string' ? parseInt(waitTime, 10) : 1);
                 activityCost = 0; // Wait is free
                 memory = 'Low';
                 rows = 0;

@@ -2,12 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { useCanvasStore } from '@/store/canvasStore';
+import ClusterConfigPanel from './ClusterConfigPanel';
 import { getComponentDefinition } from '@/lib/componentDefinitions';
 import { getADFComponentDefinition } from '@/lib/adfComponentDefinitions';
+import { getDatabricksComponentDefinition } from '@/lib/databricksComponentDefinitions';
+import DatabricksCodePreview from './DatabricksCodePreview';
 import { Info, XCircle, Save as SaveIcon } from 'lucide-react';
 
 export default function PropertiesPanel() {
-    const { selectedComponent, components, updateComponent, platform } = useCanvasStore();
+    const { selectedComponent, components, connections, updateComponent, platform } = useCanvasStore();
     const [localProperties, setLocalProperties] = useState<Record<string, string>>({});
     const [hasChanges, setHasChanges] = useState(false);
 
@@ -35,6 +38,8 @@ export default function PropertiesPanel() {
 
     const definition = platform === 'adf'
         ? getADFComponentDefinition(component.category)
+        : platform === 'databricks'
+        ? getDatabricksComponentDefinition(component.category)
         : getComponentDefinition(component.category);
 
     return (
@@ -93,7 +98,17 @@ export default function PropertiesPanel() {
                             </button>
                         )}
                     </div>
-                    {renderEditableProperties()}
+                    {platform === 'databricks' && component && (component.type === 'cluster' || component.category === 'SQLWarehouse') ? (
+                        <ClusterConfigPanel
+                            cluster={component}
+                            onUpdate={(updates) => {
+                                updateComponent(component.id, updates);
+                                setHasChanges(false);
+                            }}
+                        />
+                    ) : (
+                        renderEditableProperties()
+                    )}
                 </div>
 
                 <div>
@@ -102,6 +117,18 @@ export default function PropertiesPanel() {
                         {definition?.dataType}
                     </span>
                 </div>
+
+                {platform === 'databricks' && (
+                    <div>
+                        <h3 className="text-sm font-bold uppercase text-gray-500 dark:text-gray-400 mb-2">Generated Code</h3>
+                        <DatabricksCodePreview
+                            components={components.filter(c =>
+                                ['notebook', 'dataSource', 'transformation', 'output', 'orchestration', 'cluster'].includes(c.type)
+                            )}
+                            connections={connections}
+                        />
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -283,6 +310,154 @@ export default function PropertiesPanel() {
             return (
                 <div className="text-sm text-gray-500 dark:text-gray-400 italic">
                     No specific properties configured for this activity type yet.
+                </div>
+            );
+        }
+
+        // Databricks Components
+        if (platform === 'databricks') {
+            if (component.type === 'notebook') {
+                return (
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                Language
+                            </label>
+                            <select
+                                value={localProperties.language || localProperties.notebookLanguage || 'python'}
+                                onChange={(e) => updateProperty('notebookLanguage', e.target.value)}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            >
+                                <option value="python">Python</option>
+                                <option value="scala">Scala</option>
+                                <option value="sql">SQL</option>
+                                <option value="r">R</option>
+                                <option value="markdown">Markdown</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                Code
+                            </label>
+                            <textarea
+                                value={localProperties.code || ''}
+                                onChange={(e) => updateProperty('code', e.target.value)}
+                                placeholder="# Write your PySpark code here"
+                                rows={8}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono"
+                            />
+                        </div>
+                    </div>
+                );
+            }
+
+            if (component.type === 'dataSource') {
+                if (component.category === 'DeltaTableSource') {
+                    return (
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                    Catalog
+                                </label>
+                                <input
+                                    type="text"
+                                    value={localProperties.catalog || 'main'}
+                                    onChange={(e) => updateProperty('catalog', e.target.value)}
+                                    placeholder="main"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                    Schema
+                                </label>
+                                <input
+                                    type="text"
+                                    value={localProperties.schema || 'default'}
+                                    onChange={(e) => updateProperty('schema', e.target.value)}
+                                    placeholder="default"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                    Table
+                                </label>
+                                <input
+                                    type="text"
+                                    value={localProperties.table || ''}
+                                    onChange={(e) => updateProperty('table', e.target.value)}
+                                    placeholder="table_name"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                />
+                            </div>
+                        </div>
+                    );
+                }
+            }
+
+            if (component.type === 'output') {
+                if (component.category === 'DeltaTableSink') {
+                    return (
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                    Catalog
+                                </label>
+                                <input
+                                    type="text"
+                                    value={localProperties.catalog || 'main'}
+                                    onChange={(e) => updateProperty('catalog', e.target.value)}
+                                    placeholder="main"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                    Schema
+                                </label>
+                                <input
+                                    type="text"
+                                    value={localProperties.schema || 'default'}
+                                    onChange={(e) => updateProperty('schema', e.target.value)}
+                                    placeholder="default"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                    Table
+                                </label>
+                                <input
+                                    type="text"
+                                    value={localProperties.table || ''}
+                                    onChange={(e) => updateProperty('table', e.target.value)}
+                                    placeholder="table_name"
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                    Write Mode
+                                </label>
+                                <select
+                                    value={localProperties.mode || 'append'}
+                                    onChange={(e) => updateProperty('mode', e.target.value)}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                >
+                                    <option value="append">Append</option>
+                                    <option value="overwrite">Overwrite</option>
+                                    <option value="merge">Merge</option>
+                                </select>
+                            </div>
+                        </div>
+                    );
+                }
+            }
+
+            return (
+                <div className="text-sm text-gray-500 dark:text-gray-400 italic">
+                    Configure properties for this Databricks component.
                 </div>
             );
         }

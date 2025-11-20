@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { TUTORIALS, Tutorial } from '@/lib/tutorials';
 import { ADF_TUTORIALS } from '@/lib/adfTutorials';
+import { DATABRICKS_TUTORIALS } from '@/lib/databricksTutorials';
 import { useCanvasStore } from '@/store/canvasStore';
 import TutorialDialog from './TutorialDialog';
 import { Book, Play, X, Clock } from 'lucide-react';
@@ -14,7 +15,9 @@ export default function TutorialSelector() {
     const { platform } = useCanvasStore();
 
     const currentTutorials = useMemo(() => {
-        return platform === 'adf' ? ADF_TUTORIALS : TUTORIALS;
+        if (platform === 'adf') return ADF_TUTORIALS;
+        if (platform === 'databricks') return DATABRICKS_TUTORIALS;
+        return TUTORIALS;
     }, [platform]);
 
     const handleStartTutorial = (tutorial: Tutorial) => {
@@ -41,7 +44,11 @@ export default function TutorialSelector() {
                 title="Start Tutorial"
             >
                 <Book className="w-4 h-4" />
-                <span>{platform === 'adf' ? 'ADF Tutorials' : 'SSIS Tutorials'}</span>
+                <span>
+                    {platform === 'adf' ? 'ADF Tutorials' : 
+                     platform === 'databricks' ? 'Databricks Tutorials' : 
+                     'SSIS Tutorials'}
+                </span>
             </button>
         );
     }

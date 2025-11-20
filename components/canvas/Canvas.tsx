@@ -34,6 +34,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 import ADFComponentNode from '@/components/adf/ADFComponentNode';
 import ADFConnectionEdge from '@/components/adf/ADFConnectionEdge';
+import DatabricksComponentNode from '@/components/databricks/DatabricksComponentNode';
 
 const nodeTypes: NodeTypes = {
     source: SourceNode,
@@ -41,6 +42,7 @@ const nodeTypes: NodeTypes = {
     destination: DestinationNode,
     'control-flow-task': ControlFlowTaskNode,
     'adf-node': ADFComponentNode,
+    'databricks-node': DatabricksComponentNode,
 };
 
 const edgeTypes: EdgeTypes = {
@@ -88,9 +90,16 @@ const CanvasContent = () => {
             highlightStatus = 'downstream';
         }
 
+        let nodeType: string = c.type;
+        if (platform === 'adf') {
+            nodeType = 'adf-node';
+        } else if (platform === 'databricks') {
+            nodeType = 'databricks-node';
+        }
+
         return {
             id: c.id,
-            type: platform === 'adf' ? 'adf-node' : c.type,
+            type: nodeType as string,
             position: c.position,
             measured: c.measured,
             data: { ...c, highlightStatus },

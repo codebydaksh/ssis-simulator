@@ -82,7 +82,7 @@ const validateCopyData = (component: ADFComponent, results: ValidationResult[]) 
 };
 
 const validateWebActivity = (component: ADFComponent, results: ValidationResult[]) => {
-    const props = (component.properties || {}) as Record<string, any>;
+    const props = (component.properties || {}) as Record<string, unknown>;
     if (!props.url) {
         results.push({
             connectionId: component.id as string,
@@ -104,8 +104,9 @@ const validateWebActivity = (component: ADFComponent, results: ValidationResult[
 };
 
 const validateWaitActivity = (component: ADFComponent, results: ValidationResult[]) => {
-    const props = (component.properties || {}) as Record<string, any>;
-    if (props.waitTimeInSeconds !== undefined && props.waitTimeInSeconds < 0) {
+    const props = (component.properties || {}) as Record<string, unknown>;
+    const waitTime = props.waitTimeInSeconds;
+    if (waitTime !== undefined && waitTime !== null && typeof waitTime === 'number' && waitTime < 0) {
         results.push({
             connectionId: component.id as string,
             isValid: false,
@@ -117,7 +118,7 @@ const validateWaitActivity = (component: ADFComponent, results: ValidationResult
 };
 
 const validateForEachActivity = (component: ADFComponent, results: ValidationResult[]) => {
-    const props = (component.properties || {}) as Record<string, any>;
+    const props = (component.properties || {}) as Record<string, unknown>;
     const items = props.items;
     if (!items || (typeof items === 'string' && items.trim() === '')) {
         results.push({
@@ -131,7 +132,7 @@ const validateForEachActivity = (component: ADFComponent, results: ValidationRes
 };
 
 const validateIfCondition = (component: ADFComponent, results: ValidationResult[]) => {
-    const props = (component.properties || {}) as Record<string, any>;
+    const props = (component.properties || {}) as Record<string, unknown>;
     const expression = props.expression;
     if (!expression || (typeof expression === 'string' && expression.trim() === '')) {
         results.push({
@@ -145,7 +146,7 @@ const validateIfCondition = (component: ADFComponent, results: ValidationResult[
 };
 
 const validateSwitchActivity = (component: ADFComponent, results: ValidationResult[]) => {
-    const props = (component.properties || {}) as Record<string, any>;
+    const props = (component.properties || {}) as Record<string, unknown>;
     const on = props.on;
     if (!on || (typeof on === 'string' && on.trim() === '')) {
         results.push({
@@ -159,7 +160,7 @@ const validateSwitchActivity = (component: ADFComponent, results: ValidationResu
 };
 
 const validateExecutePipeline = (component: ADFComponent, results: ValidationResult[]) => {
-    const props = (component.properties || {}) as Record<string, any>;
+    const props = (component.properties || {}) as Record<string, unknown>;
     const pipelineRef = props.pipelineReference;
     if (!pipelineRef || (typeof pipelineRef === 'string' && pipelineRef.trim() === '')) {
         results.push({
@@ -173,7 +174,7 @@ const validateExecutePipeline = (component: ADFComponent, results: ValidationRes
 };
 
 const validateSetVariable = (component: ADFComponent, results: ValidationResult[]) => {
-    const props = (component.properties || {}) as Record<string, any>;
+    const props = (component.properties || {}) as Record<string, unknown>;
     if (!props.variableName) {
         results.push({
             connectionId: component.id as string,

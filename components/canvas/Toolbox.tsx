@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { COMPONENT_DEFINITIONS, ComponentDefinition } from '@/lib/componentDefinitions';
 import { ADF_COMPONENT_DEFINITIONS, ADFComponentDefinition } from '@/lib/adfComponentDefinitions';
+import { DATABRICKS_COMPONENT_DEFINITIONS, DatabricksComponentDefinition } from '@/lib/databricksComponentDefinitions';
 import { Search, ChevronDown, ChevronRight } from 'lucide-react';
 import { useCanvasStore } from '@/store/canvasStore';
 
@@ -16,13 +17,18 @@ export default function Toolbox() {
         'control-flow-task': true,
         'data-movement': true,
         'control-flow': true,
+        notebook: true,
+        dataSource: true,
+        output: true,
+        orchestration: true,
+        cluster: true,
     });
 
     const toggleSection = (section: string) => {
         setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
     };
 
-    const onDragStart = (event: React.DragEvent, component: ComponentDefinition | ADFComponentDefinition) => {
+    const onDragStart = (event: React.DragEvent, component: ComponentDefinition | ADFComponentDefinition | DatabricksComponentDefinition) => {
         event.dataTransfer.setData('application/reactflow', component.type);
         event.dataTransfer.setData('application/ssis-category', component.category);
         event.dataTransfer.effectAllowed = 'move';
@@ -32,6 +38,10 @@ export default function Toolbox() {
     const availableComponents = React.useMemo(() => {
         if (platform === 'adf') {
             return ADF_COMPONENT_DEFINITIONS;
+        }
+
+        if (platform === 'databricks') {
+            return DATABRICKS_COMPONENT_DEFINITIONS;
         }
 
         // SSIS Logic
@@ -62,7 +72,7 @@ export default function Toolbox() {
 
     // Group components by type for rendering
     const groupedComponents = React.useMemo(() => {
-        const groups: Record<string, (ComponentDefinition | ADFComponentDefinition)[]> = {};
+        const groups: Record<string, (ComponentDefinition | ADFComponentDefinition | DatabricksComponentDefinition)[]> = {};
 
         filteredComponents.forEach(c => {
             if (!groups[c.type]) {
@@ -82,6 +92,11 @@ export default function Toolbox() {
             case 'control-flow-task': return 'Control Flow Tasks';
             case 'data-movement': return 'Data Movement';
             case 'control-flow': return 'Control Flow';
+            case 'notebook': return 'Notebooks';
+            case 'dataSource': return 'Data Sources';
+            case 'output': return 'Outputs';
+            case 'orchestration': return 'Orchestration';
+            case 'cluster': return 'Clusters';
             default: return type.charAt(0).toUpperCase() + type.slice(1);
         }
     };
@@ -89,6 +104,8 @@ export default function Toolbox() {
     // Define section order
     const sectionOrder = platform === 'adf'
         ? ['data-movement', 'transformation', 'control-flow']
+        : platform === 'databricks'
+        ? ['notebook', 'dataSource', 'transformation', 'output', 'orchestration', 'cluster']
         : ['control-flow-task', 'source', 'transformation', 'destination'];
 
     const renderSection = (type: string) => {
@@ -139,7 +156,9 @@ export default function Toolbox() {
         <div className="w-[280px] bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 h-full flex flex-col">
             <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">
-                    {platform === 'adf' ? 'ADF Activities' : 'SSIS Toolbox'}
+                    {platform === 'adf' ? 'ADF Activities' : 
+                     platform === 'databricks' ? 'Databricks Components' : 
+                     'SSIS Toolbox'}
                 </h2>
                 <div className="relative">
                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
