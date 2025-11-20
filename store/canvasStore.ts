@@ -1,12 +1,17 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import { SSISComponent, Connection, ValidationResult, ViewMode } from '../lib/types';
+import { SSISComponent, Connection, ValidationResult, ViewMode, PlatformType } from '../lib/types';
 import { validateGraph } from '../lib/validationEngine';
 import { saveToLocalStorage, loadFromLocalStorage, exportToJSON, importFromJSON } from '../lib/persistence';
 import { historyManager } from '../lib/historyManager';
 import { decodePipelineFromURL } from '../lib/shareableLinks';
+import { generateARMTemplate } from '../lib/adfExport';
 
 interface CanvasState {
+    // Platform
+    platform: PlatformType;
+    setPlatform: (platform: PlatformType) => void;
+
     // View mode
     viewMode: ViewMode;
     setViewMode: (mode: ViewMode) => void;
@@ -74,6 +79,22 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
     };
 
     return {
+        // Platform - default to ssis
+        platform: 'ssis',
+        setPlatform: (platform: PlatformType) => {
+            const currentPlatform = get().platform;
+            if (currentPlatform === platform) return;
+
+            // Save current state before switching
+            get().saveToStorage();
+
+            // Switch platform
+            set({ platform, selectedComponent: null, currentDataFlowTaskId: null, viewMode: 'data-flow' });
+
+            // Load state for new platform
+            get().loadFromStorage();
+        },
+
         // View mode - default to data-flow for backward compatibility
         viewMode: 'data-flow',
         setViewMode: (mode: ViewMode) => {
@@ -118,7 +139,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         addComponent: (component) => {
             const { currentDataFlowTaskId, components, viewMode } = get();
 
-            console.log('🔧 ADD COMPONENT DEBUG:', {
+            console.log('[ADD COMPONENT DEBUG]:', {
                 componentName: component.name,
                 componentType: component.type,
                 componentCategory: component.category,
@@ -129,14 +150,14 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
 
             // If in nested data flow, add to nested data flow
             if (currentDataFlowTaskId) {
-                console.log('📌 Adding to NESTED data flow task:', currentDataFlowTaskId);
+                console.log('[Adding to NESTED data flow task]:', currentDataFlowTaskId);
                 const task = components.find(c => c.id === currentDataFlowTaskId);
                 if (task && task.nestedDataFlow) {
                     const updatedNested = {
                         components: [...task.nestedDataFlow.components, component],
                         connections: task.nestedDataFlow.connections
                     };
-                    console.log('✅ Component added to nested flow. New nested count:', updatedNested.components.length);
+                    console.log('[Component added to nested flow. New nested count]:', updatedNested.components.length);
                     get().updateComponent(currentDataFlowTaskId, {
                         nestedDataFlow: updatedNested
                     });
@@ -144,15 +165,15 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
                     get().validateAll();
                     return;
                 } else {
-                    console.error('❌ Nested task not found or has no nestedDataFlow property');
+                    console.error('[ERROR] Nested task not found or has no nestedDataFlow property');
                 }
             }
 
             // Otherwise add to main components
-            console.log('📌 Adding to ROOT level components');
+            console.log('[Adding to ROOT level components]');
             set((state) => {
                 const newComponents = [...state.components, component];
-                console.log('✅ Component added to root. New count:', newComponents.length);
+                console.log('[Component added to root. New count]:', newComponents.length);
                 return { components: newComponents };
             });
             saveHistory(`Added ${component.category}`);
@@ -319,8 +340,8 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         canPaste: () => get().clipboard !== null,
 
         validateAll: () => {
-            const { components, connections } = get();
-            const errors = validateGraph(components, connections);
+            const { components, connections, platform } = get();
+            const errors = validateGraph(components, connections, platform);
 
             const updatedComponents = components.map(comp => {
                 const compErrors = errors.filter(e => e.affectedComponents.includes(comp.id));
@@ -386,14 +407,20 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         canRedo: () => historyManager.canRedo(),
 
         saveToStorage: () => {
-            const { components, connections } = get();
-            saveToLocalStorage(components, connections);
+            const { components, connections, platform } = get();
+            const key = platform === 'adf' ? 'adf-simulator-canvas' : 'ssis-simulator-canvas';
+            saveToLocalStorage(components, connections, key);
         },
 
         loadFromStorage: () => {
-            const data = loadFromLocalStorage();
+            const { platform } = get();
+            const key = platform === 'adf' ? 'adf-simulator-canvas' : 'ssis-simulator-canvas';
+            const data = loadFromLocalStorage(key);
+
             if (data) {
                 console.log('[DEBUG] Loading from localStorage:', JSON.stringify({
+                    platform,
+                    key,
                     componentCount: data.components.length,
                     componentTypes: data.components.map((c: SSISComponent) => ({
                         name: c.name,
@@ -402,18 +429,22 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
                     }))
                 }, null, 2));
 
-                const validTypes = ['source', 'transformation', 'destination', 'control-flow-task'];
-                const invalidComponents = data.components.filter((c: SSISComponent) => !validTypes.includes(c.type));
+                // Validation for SSIS components
+                if (platform === 'ssis') {
+                    const validTypes = ['source', 'transformation', 'destination', 'control-flow-task'];
+                    const invalidComponents = data.components.filter((c: SSISComponent) => !validTypes.includes(c.type));
 
-                if (invalidComponents.length > 0) {
-                    console.error('[DEBUG] INVALID component types detected:', invalidComponents.map((c: SSISComponent) => ({
-                        name: c.name,
-                        type: c.type
-                    })));
-                    console.warn('[DEBUG] Clearing corrupted localStorage...');
-                    localStorage.removeItem('ssis-simulator-canvas');
-                    alert('Corrupted data detected in localStorage. It has been cleared. Please refresh the page.');
-                    return;
+                    if (invalidComponents.length > 0) {
+                        console.error('[DEBUG] INVALID component types detected:', invalidComponents.map((c: SSISComponent) => ({
+                            name: c.name,
+                            type: c.type
+                        })));
+                        console.warn('[DEBUG] Clearing corrupted localStorage...');
+                        localStorage.removeItem(key);
+                        alert('Corrupted data detected in localStorage. It has been cleared. Please refresh the page.');
+                        set({ components: [], connections: [], errors: [], selectedComponent: null });
+                        return;
+                    }
                 }
 
                 set({
@@ -425,12 +456,30 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
                 historyManager.clear();
                 saveHistory('Loaded from storage');
                 get().validateAll();
+            } else {
+                // If no data found for this platform, reset to empty
+                set({ components: [], connections: [], errors: [], selectedComponent: null });
+                historyManager.clear();
             }
         },
 
         exportToFile: () => {
-            const { components, connections } = get();
-            exportToJSON(components, connections);
+            const { components, connections, platform } = get();
+
+            if (platform === 'adf') {
+                const armTemplate = generateARMTemplate(components, connections);
+                const blob = new Blob([armTemplate], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `adf-pipeline-export-${new Date().toISOString().slice(0, 10)}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            } else {
+                exportToJSON(components, connections);
+            }
         },
 
         importFromFile: async (file: File) => {
@@ -449,19 +498,54 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         },
 
         loadTemplate: (components, connections) => {
+            const { platform } = get();
+
+            // Determine the appropriate view mode based on template content
+            let initialViewMode: ViewMode = 'data-flow';
+
+            if (platform === 'ssis') {
+                // Check if template has control flow tasks
+                const hasControlFlowTasks = components.some(c => c.type === 'control-flow-task');
+                const hasDataFlowComponents = components.some(c =>
+                    c.type === 'source' || c.type === 'transformation' || c.type === 'destination'
+                );
+
+                // If it has control flow tasks, show control flow view
+                // Otherwise show data flow view
+                initialViewMode = hasControlFlowTasks ? 'control-flow' : 'data-flow';
+            }
+
+            console.log('[LOAD TEMPLATE]:', {
+                platform,
+                componentCount: components.length,
+                componentTypes: components.map(c => ({ name: c.name, type: c.type })),
+                initialViewMode
+            });
+
             set({
                 components,
                 connections,
                 errors: [],
                 selectedComponent: null,
-                // Reset view mode to show the loaded template
-                viewMode: 'data-flow',
-                // Reset nested data flow context
+                viewMode: initialViewMode,
                 currentDataFlowTaskId: null
             });
+
+            console.log('[LOAD TEMPLATE] State set complete. Verifying...');
+
             historyManager.clear();
             saveHistory('Loaded template');
             get().validateAll();
+
+            // Verify the final state
+            const finalState = get();
+            console.log('[LOAD TEMPLATE] Final state:', {
+                componentCount: finalState.components.length,
+                viewMode: finalState.viewMode,
+                platform: finalState.platform,
+                visibleComponents: finalState.getCurrentComponents().length,
+                visibleComponentNames: finalState.getCurrentComponents().map(c => c.name)
+            });
         },
 
         loadFromURL: () => {
@@ -481,29 +565,42 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
 
         // Helper getters - return components/connections for current view
         getCurrentComponents: () => {
-            const { viewMode, currentDataFlowTaskId, components } = get();
+            const { viewMode, currentDataFlowTaskId, components, platform } = get();
 
-            console.log('👀 GET CURRENT COMPONENTS:', {
+            console.log('[GET CURRENT COMPONENTS]:', {
+                platform,
                 viewMode,
                 currentDataFlowTaskId,
                 totalComponents: components.length
             });
 
-            // If viewing nested data flow, return nested components
+            // If viewing nested data flow (SSIS Data Flow Task or ADF Mapping Data Flow), return nested components
             if (currentDataFlowTaskId) {
                 const task = components.find(c => c.id === currentDataFlowTaskId);
                 if (task?.nestedDataFlow) {
-                    console.log('📦 Returning NESTED components:', task.nestedDataFlow.components.length);
+                    console.log('[Returning NESTED components]:', task.nestedDataFlow.components.length);
                     return task.nestedDataFlow.components;
                 }
-                console.log('⚠️ No nested flow. Returning empty.');
+                console.log('[WARNING] No nested flow. Returning empty.');
                 return [];
             }
 
+            // ADF Platform Logic
+            if (platform === 'adf') {
+                // In ADF, the main canvas is the Pipeline (Control Flow).
+                // All ADF components added to the root are part of the pipeline.
+                // We filter out SSIS components just in case.
+                const adfComponents = components.filter(c =>
+                    ['data-movement', 'transformation', 'control-flow'].includes(c.type)
+                );
+                return adfComponents;
+            }
+
+            // SSIS Platform Logic
             // If in control flow view, return only control flow tasks
             if (viewMode === 'control-flow') {
                 const cf = components.filter(c => c.type === 'control-flow-task');
-                console.log('🎛️ Returning CONTROL FLOW:', cf.length);
+                console.log('[Returning CONTROL FLOW]:', cf.length);
                 return cf;
             }
 
@@ -525,7 +622,7 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
         },
 
         getCurrentConnections: () => {
-            const { viewMode, currentDataFlowTaskId, connections, components } = get();
+            const { viewMode, currentDataFlowTaskId, connections, components, platform } = get();
 
             // If viewing nested data flow, return nested connections
             if (currentDataFlowTaskId) {
@@ -536,6 +633,21 @@ export const useCanvasStore = create<CanvasState>((set, get) => {
                 return [];
             }
 
+            // ADF Platform Logic
+            if (platform === 'adf') {
+                // Return all connections between ADF components
+                const adfComponentIds = new Set(
+                    components.filter(c =>
+                        ['data-movement', 'transformation', 'control-flow'].includes(c.type)
+                    ).map(c => c.id)
+                );
+                return connections.filter(c =>
+                    adfComponentIds.has(c.source) &&
+                    adfComponentIds.has(c.target)
+                );
+            }
+
+            // SSIS Platform Logic
             // If in control flow view, return only control flow connections
             if (viewMode === 'control-flow') {
                 const controlFlowComponentIds = new Set(

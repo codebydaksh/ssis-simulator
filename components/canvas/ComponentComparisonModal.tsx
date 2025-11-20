@@ -2,6 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { getComponentDefinition, COMPONENT_DEFINITIONS } from '@/lib/componentDefinitions';
+import { getADFComponentDefinition, ADF_COMPONENT_DEFINITIONS } from '@/lib/adfComponentDefinitions';
+import { useCanvasStore } from '@/store/canvasStore';
 import { X, Search, ArrowRight } from 'lucide-react';
 
 interface ComponentComparisonModalProps {
@@ -13,20 +15,32 @@ export default function ComponentComparisonModal({ isOpen, onClose }: ComponentC
     const [searchTerm, setSearchTerm] = useState('');
     const [component1, setComponent1] = useState<string | null>(null);
     const [component2, setComponent2] = useState<string | null>(null);
+    const { platform } = useCanvasStore();
+
+    const currentDefinitions = useMemo(() => {
+        return platform === 'adf' ? ADF_COMPONENT_DEFINITIONS : COMPONENT_DEFINITIONS;
+    }, [platform]);
 
     const filteredComponents = useMemo(() => {
-        if (!searchTerm) return COMPONENT_DEFINITIONS;
+        if (!searchTerm) return currentDefinitions;
         const term = searchTerm.toLowerCase();
-        return COMPONENT_DEFINITIONS.filter(comp =>
+        return currentDefinitions.filter((comp: any) =>
             comp.name.toLowerCase().includes(term) ||
             comp.description.toLowerCase().includes(term) ||
             comp.category.toLowerCase().includes(term) ||
-            comp.useCases.some(uc => uc.toLowerCase().includes(term))
+            comp.useCases.some((uc: string) => uc.toLowerCase().includes(term))
         );
-    }, [searchTerm]);
+    }, [searchTerm, currentDefinitions]);
 
-    const def1 = component1 ? getComponentDefinition(component1) : null;
-    const def2 = component2 ? getComponentDefinition(component2) : null;
+    const def1 = useMemo(() => {
+        if (!component1) return null;
+        return platform === 'adf' ? getADFComponentDefinition(component1) : getComponentDefinition(component1);
+    }, [component1, platform]);
+
+    const def2 = useMemo(() => {
+        if (!component2) return null;
+        return platform === 'adf' ? getADFComponentDefinition(component2) : getComponentDefinition(component2);
+    }, [component2, platform]);
 
     const getComparisonData = () => {
         if (!def1 || !def2) return null;
@@ -42,6 +56,7 @@ export default function ComponentComparisonModal({ isOpen, onClose }: ComponentC
 
     const getWhenToUse = (category: string): string => {
         const whenToUseMap: { [key: string]: string } = {
+            // SSIS
             'OLEDBSource': 'Use when reading from relational databases (SQL Server, Oracle, etc.). Best for structured, typed data.',
             'FlatFileSource': 'Use for CSV, TXT, or delimited text files. Good for importing legacy data or logs.',
             'ExcelSource': 'Use for Excel workbooks. Limited to 65,536 rows per sheet. Good for business reports.',
@@ -60,6 +75,21 @@ export default function ComponentComparisonModal({ isOpen, onClose }: ComponentC
             'OLEDBDestination': 'Use to write to relational databases. Supports batch inserts for performance.',
             'FlatFileDestination': 'Use to write CSV or text files. Good for exports and data interchange.',
             'ExcelDestination': 'Use to write Excel files. Limited to 65,536 rows per sheet.',
+
+            // ADF
+            'CopyData': 'Use for moving data between stores (e.g., Blob to SQL). Highly scalable and performant.',
+            'MappingDataFlow': 'Use for visual data transformation logic (joins, aggregates, etc.) running on Spark clusters.',
+            'DatabricksNotebook': 'Use for complex code-based transformations (Python, Scala, SQL) or ML workloads.',
+            'ForEach': 'Use to iterate over a collection (e.g., list of files) and execute activities for each item.',
+            'IfCondition': 'Use for branching logic based on an expression (True/False).',
+            'Switch': 'Use for multi-path branching based on a value (Case 1, Case 2, Default).',
+            'ExecutePipeline': 'Use to invoke another pipeline. Promotes modularity and reuse.',
+            'WebActivity': 'Use to call REST APIs. Good for triggering external processes or getting metadata.',
+            'Wait': 'Use to pause execution for a set duration. Useful for polling or throttling.',
+            'SetVariable': 'Use to store temporary values or state within a pipeline run.',
+            'Validation': 'Use to ensure a dataset exists or meets criteria before proceeding.',
+            'GetMetadata': 'Use to retrieve file properties (size, last modified) or list files in a folder.',
+            'Filter': 'Use to filter an array of items based on a condition.'
         };
 
         return whenToUseMap[category] || 'Review component description and use cases to determine when to use.';
@@ -67,6 +97,7 @@ export default function ComponentComparisonModal({ isOpen, onClose }: ComponentC
 
     const getPerformanceNotes = (category: string): string => {
         const perfMap: { [key: string]: string } = {
+            // SSIS
             'Sort': 'Memory-intensive. Consider filtering before sorting. O(n log n) complexity.',
             'Aggregate': 'Memory-intensive for large groups. Sort input by GROUP BY columns for better performance.',
             'Lookup': 'Caches lookup table in memory. Best for small reference tables (< 1M rows).',
@@ -74,6 +105,14 @@ export default function ComponentComparisonModal({ isOpen, onClose }: ComponentC
             'Multicast': 'Broadcasts data to all outputs. Multiplies memory usage by number of outputs.',
             'DataConversion': 'Low overhead. Fast type conversions.',
             'DerivedColumn': 'Very fast. Row-by-row calculations with minimal overhead.',
+
+            // ADF
+            'CopyData': 'Optimized for throughput. Uses Data Integration Units (DIUs). Parallel copy supported.',
+            'MappingDataFlow': 'Runs on Spark clusters. Startup time overhead (3-5 mins) unless using TTL. Scales horizontally.',
+            'DatabricksNotebook': 'Performance depends on cluster configuration and code efficiency. Startup time applies.',
+            'ForEach': 'Can run in parallel (batch count) or sequentially. Parallel is faster but harder to debug.',
+            'WebActivity': 'Lightweight, but depends on external API response time. Timeout limits apply.',
+            'GetMetadata': 'Fast metadata retrieval. Does not read file content, only attributes.'
         };
 
         return perfMap[category] || 'Performance depends on data volume and component configuration.';
@@ -134,10 +173,10 @@ export default function ComponentComparisonModal({ isOpen, onClose }: ComponentC
                                                 }
                                             }}
                                             className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${isSelected1
-                                                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100'
-                                                    : isSelected2
-                                                        ? 'bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100'
-                                                        : 'hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
+                                                ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100'
+                                                : isSelected2
+                                                    ? 'bg-green-100 dark:bg-green-900 text-green-900 dark:text-green-100'
+                                                    : 'hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
                                                 }`}
                                         >
                                             <div className="flex items-center justify-between">

@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { TEMPLATES, Template } from '@/lib/templates';
+import { ADF_TEMPLATES, PipelineTemplate } from '@/lib/adfTemplates';
 import { useCanvasStore } from '@/store/canvasStore';
 import { Book, X, Search } from 'lucide-react';
 
@@ -9,30 +10,34 @@ export default function TemplateSelector() {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-    const { loadTemplate } = useCanvasStore();
+    const { loadTemplate, platform } = useCanvasStore();
+
+    const currentTemplates = useMemo(() => {
+        return platform === 'adf' ? ADF_TEMPLATES : TEMPLATES;
+    }, [platform]);
 
     const categories = useMemo(() => {
         const cats = new Set<string>();
-        TEMPLATES.forEach(t => {
+        currentTemplates.forEach((t: any) => {
             if (t.category) cats.add(t.category);
         });
         return Array.from(cats).sort();
-    }, []);
+    }, [currentTemplates]);
 
     const filteredTemplates = useMemo(() => {
-        return TEMPLATES.filter(template => {
-            const matchesSearch = !searchTerm || 
+        return currentTemplates.filter((template: any) => {
+            const matchesSearch = !searchTerm ||
                 template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 template.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                template.tags?.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
-            
+                template.tags?.some((tag: string) => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+
             const matchesCategory = !selectedCategory || template.category === selectedCategory;
-            
+
             return matchesSearch && matchesCategory;
         });
-    }, [searchTerm, selectedCategory]);
+    }, [searchTerm, selectedCategory, currentTemplates]);
 
-    const handleLoadTemplate = (template: Template) => {
+    const handleLoadTemplate = (template: any) => {
         if (confirm(`Load template "${template.name}"? This will replace your current canvas.`)) {
             loadTemplate(template.components, template.connections);
             setIsOpen(false);
@@ -47,7 +52,7 @@ export default function TemplateSelector() {
                 title="Load Example Template"
             >
                 <Book className="w-4 h-4" />
-                <span>Templates</span>
+                <span>{platform === 'adf' ? 'ADF Templates' : 'SSIS Templates'}</span>
             </button>
         );
     }
@@ -56,7 +61,9 @@ export default function TemplateSelector() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-6xl w-full max-h-[85vh] overflow-hidden flex flex-col">
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Load Example Template</h2>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                        Load {platform === 'adf' ? 'ADF' : 'SSIS'} Example Template
+                    </h2>
                     <button
                         onClick={() => setIsOpen(false)}
                         className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
@@ -76,15 +83,14 @@ export default function TemplateSelector() {
                             className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
                         />
                     </div>
-                    
+
                     <div className="flex flex-wrap gap-2">
                         <button
                             onClick={() => setSelectedCategory(null)}
-                            className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
-                                selectedCategory === null
+                            className={`px-3 py-1.5 rounded-md text-sm transition-colors ${selectedCategory === null
                                     ? 'bg-indigo-600 text-white'
                                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                            }`}
+                                }`}
                         >
                             All Categories
                         </button>
@@ -92,19 +98,18 @@ export default function TemplateSelector() {
                             <button
                                 key={category}
                                 onClick={() => setSelectedCategory(category)}
-                                className={`px-3 py-1.5 rounded-md text-sm transition-colors ${
-                                    selectedCategory === category
+                                className={`px-3 py-1.5 rounded-md text-sm transition-colors ${selectedCategory === category
                                         ? 'bg-indigo-600 text-white'
                                         : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                                }`}
+                                    }`}
                             >
                                 {category}
                             </button>
                         ))}
                     </div>
-                    
+
                     <div className="text-sm text-gray-600 dark:text-gray-400">
-                        Showing {filteredTemplates.length} of {TEMPLATES.length} templates
+                        Showing {filteredTemplates.length} of {currentTemplates.length} templates
                     </div>
                 </div>
 
@@ -116,7 +121,7 @@ export default function TemplateSelector() {
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {filteredTemplates.map((template) => (
+                            {filteredTemplates.map((template: any) => (
                                 <div
                                     key={template.id}
                                     className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer bg-white dark:bg-gray-800"
@@ -124,12 +129,11 @@ export default function TemplateSelector() {
                                 >
                                     <div className="flex items-start justify-between mb-2">
                                         <h3 className="font-semibold text-lg text-gray-900 dark:text-white">{template.name}</h3>
-                                        <span className={`text-xs px-2 py-1 rounded flex-shrink-0 ml-2 ${
-                                            template.difficulty === 'Beginner' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' :
-                                            template.difficulty === 'Intermediate' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' :
-                                            'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
-                                        }`}>
-                                            {template.difficulty}
+                                        <span className={`text-xs px-2 py-1 rounded flex-shrink-0 ml-2 ${template.difficulty === 'Beginner' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' :
+                                                template.difficulty === 'Intermediate' ? 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200' :
+                                                    'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200' // Default color
+                                            }`}>
+                                            {template.difficulty || 'Standard'}
                                         </span>
                                     </div>
                                     {template.category && (
@@ -146,7 +150,7 @@ export default function TemplateSelector() {
                                     </div>
                                     {template.tags && template.tags.length > 0 && (
                                         <div className="mt-2 flex flex-wrap gap-1">
-                                            {template.tags.slice(0, 3).map(tag => (
+                                            {template.tags.slice(0, 3).map((tag: string) => (
                                                 <span key={tag} className="text-xs px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
                                                     {tag}
                                                 </span>

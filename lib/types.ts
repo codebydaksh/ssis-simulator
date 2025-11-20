@@ -1,4 +1,4 @@
-export type ComponentType = 'source' | 'transformation' | 'destination' | 'control-flow-task';
+export type ComponentType = 'source' | 'transformation' | 'destination' | 'control-flow-task' | 'data-movement' | 'control-flow' | 'other';
 export type DataType = 'structured' | 'text' | 'mixed' | 'nested';
 export type Severity = 'error' | 'warning' | 'info';
 export type ViewMode = 'data-flow' | 'control-flow';
@@ -73,4 +73,34 @@ export interface Connection {
     expression?: string; // For expression-based constraints
 
     [key: string]: unknown;
+}
+
+export type PlatformType = 'ssis' | 'adf';
+
+export type ADFComponentType = 'data-movement' | 'transformation' | 'control-flow' | 'other';
+
+export interface ADFComponent extends Omit<SSISComponent, 'type' | 'category'> {
+    type: ADFComponentType;
+    category: string; // e.g., 'CopyData', 'MappingDataFlow', 'WebActivity'
+
+    // ADF specific properties
+    linkedService?: string;
+    integrationRuntime?: string;
+    policy?: {
+        timeout?: string;
+        retry?: number;
+        retryIntervalInSeconds?: number;
+        secureOutput?: boolean;
+        secureInput?: boolean;
+    };
+
+    // For Control Flow
+    activities?: ADFComponent[]; // For container activities like ForEach, IfCondition
+
+    // For Switch Activity
+    cases?: {
+        value: string;
+        activities: ADFComponent[];
+    }[];
+    defaultActivities?: ADFComponent[];
 }

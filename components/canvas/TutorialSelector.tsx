@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { TUTORIALS, Tutorial } from '@/lib/tutorials';
+import { ADF_TUTORIALS } from '@/lib/adfTutorials';
+import { useCanvasStore } from '@/store/canvasStore';
 import TutorialDialog from './TutorialDialog';
 import { Book, Play, X, Clock } from 'lucide-react';
 
@@ -9,6 +11,11 @@ export default function TutorialSelector() {
     const [isOpen, setIsOpen] = useState(false);
     const [selectedTutorial, setSelectedTutorial] = useState<Tutorial | null>(null);
     const [isTutorialRunning, setIsTutorialRunning] = useState(false);
+    const { platform } = useCanvasStore();
+
+    const currentTutorials = useMemo(() => {
+        return platform === 'adf' ? ADF_TUTORIALS : TUTORIALS;
+    }, [platform]);
 
     const handleStartTutorial = (tutorial: Tutorial) => {
         setSelectedTutorial(tutorial);
@@ -34,7 +41,7 @@ export default function TutorialSelector() {
                 title="Start Tutorial"
             >
                 <Book className="w-4 h-4" />
-                <span>Tutorials</span>
+                <span>{platform === 'adf' ? 'ADF Tutorials' : 'SSIS Tutorials'}</span>
             </button>
         );
     }
@@ -54,7 +61,9 @@ export default function TutorialSelector() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden flex flex-col">
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Interactive Tutorials</h2>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                        Interactive {platform === 'adf' ? 'ADF' : 'SSIS'} Tutorials
+                    </h2>
                     <button
                         onClick={() => setIsOpen(false)}
                         className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
@@ -65,11 +74,11 @@ export default function TutorialSelector() {
 
                 <div className="flex-1 overflow-y-auto p-6">
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-                        Learn SSIS step-by-step with interactive tutorials. Each tutorial guides you through building real pipelines.
+                        Learn {platform === 'adf' ? 'Azure Data Factory' : 'SSIS'} step-by-step with interactive tutorials. Each tutorial guides you through building real pipelines.
                     </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {TUTORIALS.map((tutorial) => (
+                        {currentTutorials.map((tutorial) => (
                             <div
                                 key={tutorial.id}
                                 className="border border-gray-200 dark:border-gray-700 rounded-lg p-5 hover:shadow-md transition-shadow bg-white dark:bg-gray-800"

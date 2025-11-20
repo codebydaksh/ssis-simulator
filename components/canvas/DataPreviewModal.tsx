@@ -11,7 +11,7 @@ interface DataPreviewModalProps {
 }
 
 export default function DataPreviewModal({ isOpen, onClose }: DataPreviewModalProps) {
-    const { components, connections } = useCanvasStore();
+    const { components, connections, platform } = useCanvasStore();
     const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
 
     const dataPreviews = useMemo(() => {
@@ -32,7 +32,9 @@ export default function DataPreviewModal({ isOpen, onClose }: DataPreviewModalPr
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
                     <div className="flex items-center space-x-2">
                         <Eye className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Data Flow Preview</h2>
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                            {platform === 'adf' ? 'Pipeline Run Preview' : 'Data Flow Preview'}
+                        </h2>
                     </div>
                     <button
                         onClick={onClose}
@@ -47,7 +49,7 @@ export default function DataPreviewModal({ isOpen, onClose }: DataPreviewModalPr
                     <div className="w-64 border-r border-gray-200 dark:border-gray-700 overflow-y-auto bg-gray-50 dark:bg-gray-900">
                         <div className="p-4">
                             <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                                Components ({dataPreviews.length})
+                                {platform === 'adf' ? 'Activities' : 'Components'} ({dataPreviews.length})
                             </h3>
                             <div className="space-y-1">
                                 {dataPreviews.map((preview) => {
@@ -66,7 +68,7 @@ export default function DataPreviewModal({ isOpen, onClose }: DataPreviewModalPr
                                                 <ChevronRight className={`w-4 h-4 flex-shrink-0 ${isSelected ? 'opacity-100' : 'opacity-0'}`} />
                                             </div>
                                             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                                {preview.rowCount} rows
+                                                {platform === 'adf' ? 'Output available' : `${preview.rowCount} rows`}
                                             </div>
                                         </button>
                                     );
@@ -84,7 +86,9 @@ export default function DataPreviewModal({ isOpen, onClose }: DataPreviewModalPr
                                         {selectedPreview.componentName}
                                     </h3>
                                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                                        Showing {selectedPreview.rows.length} sample rows
+                                        {platform === 'adf'
+                                            ? 'Simulated Activity Output'
+                                            : `Showing ${selectedPreview.rows.length} sample rows`}
                                     </p>
                                 </div>
 
@@ -132,7 +136,7 @@ export default function DataPreviewModal({ isOpen, onClose }: DataPreviewModalPr
                             <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
                                 <div className="text-center">
                                     <Eye className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                                    <p>Select a component from the list to view its data preview</p>
+                                    <p>Select a {platform === 'adf' ? 'activity' : 'component'} from the list to view its preview</p>
                                 </div>
                             </div>
                         )}
@@ -141,7 +145,9 @@ export default function DataPreviewModal({ isOpen, onClose }: DataPreviewModalPr
 
                 <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
                     <p className="text-xs text-gray-600 dark:text-gray-400">
-                        Data preview shows sample rows generated based on component types. This is a simulation for learning purposes.
+                        {platform === 'adf'
+                            ? 'Preview shows simulated output for each activity. In a real ADF pipeline, this would be the activity run output.'
+                            : 'Data preview shows sample rows generated based on component types. This is a simulation for learning purposes.'}
                     </p>
                 </div>
             </div>

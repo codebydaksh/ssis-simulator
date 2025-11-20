@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { useCanvasStore } from '@/store/canvasStore';
 import { getComponentDefinition } from '@/lib/componentDefinitions';
+import { getADFComponentDefinition } from '@/lib/adfComponentDefinitions';
 import { Info, XCircle, Save as SaveIcon } from 'lucide-react';
 
 export default function PropertiesPanel() {
-    const { selectedComponent, components, updateComponent } = useCanvasStore();
+    const { selectedComponent, components, updateComponent, platform } = useCanvasStore();
     const [localProperties, setLocalProperties] = useState<Record<string, string>>({});
     const [hasChanges, setHasChanges] = useState(false);
 
@@ -32,7 +33,9 @@ export default function PropertiesPanel() {
         );
     }
 
-    const definition = getComponentDefinition(component.category);
+    const definition = platform === 'adf'
+        ? getADFComponentDefinition(component.category)
+        : getComponentDefinition(component.category);
 
     return (
         <div className="w-[320px] bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 h-full flex flex-col overflow-y-auto">
@@ -66,7 +69,7 @@ export default function PropertiesPanel() {
                 <div>
                     <h3 className="text-sm font-bold uppercase text-gray-500 dark:text-gray-400 mb-2">Use Cases</h3>
                     <ul className="list-disc list-inside text-sm text-gray-700 dark:text-gray-300 space-y-1">
-                        {definition?.useCases.map((useCase, i) => (
+                        {definition?.useCases.map((useCase: string, i: number) => (
                             <li key={i}>{useCase}</li>
                         ))}
                     </ul>
@@ -111,6 +114,180 @@ export default function PropertiesPanel() {
             setHasChanges(true);
         };
 
+        // ADF Components
+        if (platform === 'adf') {
+            if (component.category === 'CopyData') {
+                return (
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                Source Linked Service
+                            </label>
+                            <input
+                                type="text"
+                                value={localProperties.sourceLinkedService || ''}
+                                onChange={(e) => updateProperty('sourceLinkedService', e.target.value)}
+                                placeholder="e.g., AzureBlobStorage1"
+                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                Sink Linked Service
+                            </label>
+                            <input
+                                type="text"
+                                value={localProperties.sinkLinkedService || ''}
+                                onChange={(e) => updateProperty('sinkLinkedService', e.target.value)}
+                                placeholder="e.g., AzureSqlDatabase1"
+                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                    </div>
+                );
+            }
+
+            if (component.category === 'WebActivity') {
+                return (
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                URL
+                            </label>
+                            <input
+                                type="text"
+                                value={localProperties.url || ''}
+                                onChange={(e) => updateProperty('url', e.target.value)}
+                                placeholder="https://api.example.com/data"
+                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                Method
+                            </label>
+                            <select
+                                value={localProperties.method || 'GET'}
+                                onChange={(e) => updateProperty('method', e.target.value)}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="GET">GET</option>
+                                <option value="POST">POST</option>
+                                <option value="PUT">PUT</option>
+                                <option value="DELETE">DELETE</option>
+                            </select>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (component.category === 'Wait') {
+                return (
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                Wait Time (seconds)
+                            </label>
+                            <input
+                                type="number"
+                                value={localProperties.waitTimeInSeconds || '1'}
+                                onChange={(e) => updateProperty('waitTimeInSeconds', e.target.value)}
+                                min="1"
+                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                    </div>
+                );
+            }
+
+            if (component.category === 'SetVariable') {
+                return (
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                Variable Name
+                            </label>
+                            <input
+                                type="text"
+                                value={localProperties.variableName || ''}
+                                onChange={(e) => updateProperty('variableName', e.target.value)}
+                                placeholder="myVar"
+                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                Value
+                            </label>
+                            <input
+                                type="text"
+                                value={localProperties.value || ''}
+                                onChange={(e) => updateProperty('value', e.target.value)}
+                                placeholder="some value"
+                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                    </div>
+                );
+            }
+
+            if (['IfCondition', 'Switch', 'ForEach'].includes(component.category)) {
+                return (
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                Expression
+                            </label>
+                            <textarea
+                                value={localProperties.expression || ''}
+                                onChange={(e) => updateProperty('expression', e.target.value)}
+                                placeholder="@equals(variables('status'), 'Succeeded')"
+                                rows={3}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                            />
+                        </div>
+                    </div>
+                );
+            }
+
+            if (component.category === 'ExecutePipeline') {
+                return (
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                Pipeline Reference
+                            </label>
+                            <input
+                                type="text"
+                                value={localProperties.pipelineReference || ''}
+                                onChange={(e) => updateProperty('pipelineReference', e.target.value)}
+                                placeholder="PipelineName"
+                                className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <input
+                                type="checkbox"
+                                checked={localProperties.waitOnCompletion === 'true'}
+                                onChange={(e) => updateProperty('waitOnCompletion', String(e.target.checked))}
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <label className="text-sm text-gray-700 dark:text-gray-300">
+                                Wait on completion
+                            </label>
+                        </div>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="text-sm text-gray-500 dark:text-gray-400 italic">
+                    No specific properties configured for this activity type yet.
+                </div>
+            );
+        }
+
+        // SSIS Components
         if (component.type === 'source') {
             return (
                 <div className="space-y-4">

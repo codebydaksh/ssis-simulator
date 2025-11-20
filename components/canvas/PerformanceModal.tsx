@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import { useCanvasStore } from '@/store/canvasStore';
-import { simulatePerformance, formatDuration, formatBytes, SimulationResult } from '@/lib/performanceSimulator';
-import { X, Play, Activity, Clock, Database, AlertTriangle, Cpu } from 'lucide-react';
+import { simulatePerformance, formatDuration, formatBytes, formatCost, SimulationResult } from '@/lib/performanceSimulator';
+import { X, Play, Activity, Clock, Database, AlertTriangle, Cpu, DollarSign, Zap } from 'lucide-react';
 
 interface PerformanceModalProps {
     isOpen: boolean;
@@ -11,7 +11,7 @@ interface PerformanceModalProps {
 }
 
 export default function PerformanceModal({ isOpen, onClose }: PerformanceModalProps) {
-    const { components, connections } = useCanvasStore();
+    const { components, connections, platform } = useCanvasStore();
     const [rowCount, setRowCount] = useState<number>(100000);
     const [isSimulating, setIsSimulating] = useState(false);
     const [result, setResult] = useState<SimulationResult | null>(null);
@@ -22,7 +22,7 @@ export default function PerformanceModal({ isOpen, onClose }: PerformanceModalPr
         setIsSimulating(true);
         // Simulate network delay for realistic feel
         setTimeout(() => {
-            const res = simulatePerformance(components, connections, rowCount);
+            const res = simulatePerformance(components, connections, rowCount, platform);
             setResult(res);
             setIsSimulating(false);
         }, 800);
@@ -32,6 +32,8 @@ export default function PerformanceModal({ isOpen, onClose }: PerformanceModalPr
         return new Intl.NumberFormat('en-US', { notation: "compact", compactDisplay: "short" }).format(num);
     };
 
+    const isADF = platform === 'adf';
+
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm">
             <div className="bg-white rounded-xl shadow-2xl w-[800px] max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -39,7 +41,7 @@ export default function PerformanceModal({ isOpen, onClose }: PerformanceModalPr
                 <div className="bg-gray-900 text-white px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                         <Activity className="w-5 h-5 text-blue-400" />
-                        <h2 className="text-xl font-bold">Performance Simulator</h2>
+                        <h2 className="text-xl font-bold">{isADF ? 'ADF' : 'SSIS'} Performance Simulator</h2>
                     </div>
                     <button onClick={onClose} className="hover:bg-gray-800 p-1 rounded transition-colors">
                         <X className="w-5 h-5" />
@@ -97,7 +99,7 @@ export default function PerformanceModal({ isOpen, onClose }: PerformanceModalPr
                     {result && (
                         <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
                             {/* Key Metrics Cards */}
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className={`grid ${isADF ? 'grid-cols-4' : 'grid-cols-3'} gap-4`}>
                                 <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg">
                                     <div className="flex items-center space-x-2 text-blue-800 mb-1">
                                         <Clock className="w-4 h-4" />
@@ -107,14 +109,38 @@ export default function PerformanceModal({ isOpen, onClose }: PerformanceModalPr
                                     <p className="text-xs text-blue-600 mt-1">~{formatNumber(result.throughput)} rows/sec</p>
                                 </div>
 
-                                <div className="bg-purple-50 border border-purple-100 p-4 rounded-lg">
-                                    <div className="flex items-center space-x-2 text-purple-800 mb-1">
-                                        <Database className="w-4 h-4" />
-                                        <span className="text-sm font-semibold">Memory Usage</span>
+                                {!isADF && (
+                                    <div className="bg-purple-50 border border-purple-100 p-4 rounded-lg">
+                                        <div className="flex items-center space-x-2 text-purple-800 mb-1">
+                                            <Database className="w-4 h-4" />
+                                            <span className="text-sm font-semibold">Memory Usage</span>
+                                        </div>
+                                        <p className="text-2xl font-bold text-purple-900">{formatBytes(result.memoryUsage)}</p>
+                                        <p className="text-xs text-purple-600 mt-1">Peak allocation</p>
                                     </div>
-                                    <p className="text-2xl font-bold text-purple-900">{formatBytes(result.memoryUsage)}</p>
-                                    <p className="text-xs text-purple-600 mt-1">Peak allocation</p>
-                                </div>
+                                )}
+
+                                {isADF && result.estimatedDIUs !== undefined && (
+                                    <div className="bg-teal-50 border border-teal-100 p-4 rounded-lg">
+                                        <div className="flex items-center space-x-2 text-teal-800 mb-1">
+                                            <Zap className="w-4 h-4" />
+                                            <span className="text-sm font-semibold">Estimated DIUs</span>
+                                        </div>
+                                        <p className="text-2xl font-bold text-teal-900">{result.estimatedDIUs}</p>
+                                        <p className="text-xs text-teal-600 mt-1">Data Integration Units</p>
+                                    </div>
+                                )}
+
+                                {isADF && result.estimatedCost !== undefined && (
+                                    <div className="bg-green-50 border border-green-100 p-4 rounded-lg">
+                                        <div className="flex items-center space-x-2 text-green-800 mb-1">
+                                            <DollarSign className="w-4 h-4" />
+                                            <span className="text-sm font-semibold">Est. Cost</span>
+                                        </div>
+                                        <p className="text-2xl font-bold text-green-900">{formatCost(result.estimatedCost)}</p>
+                                        <p className="text-xs text-green-600 mt-1">Per execution</p>
+                                    </div>
+                                )}
 
                                 <div className="bg-orange-50 border border-orange-100 p-4 rounded-lg">
                                     <div className="flex items-center space-x-2 text-orange-800 mb-1">
@@ -124,15 +150,26 @@ export default function PerformanceModal({ isOpen, onClose }: PerformanceModalPr
                                     <p className="text-lg font-bold text-orange-900 truncate" title={result.componentMetrics.find(m => m.isBottleneck)?.componentName || 'None'}>
                                         {result.componentMetrics.find(m => m.isBottleneck)?.componentName || 'None'}
                                     </p>
-                                    <p className="text-xs text-orange-600 mt-1">Slowest component</p>
+                                    <p className="text-xs text-orange-600 mt-1">Slowest {isADF ? 'activity' : 'component'}</p>
                                 </div>
                             </div>
+
+                            {/* ADF Cluster Size Recommendation */}
+                            {isADF && result.clusterSize && (
+                                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                                    <div className="flex items-center space-x-2 text-indigo-800 mb-2">
+                                        <Cpu className="w-4 h-4" />
+                                        <span className="text-sm font-semibold">Recommended Cluster Size</span>
+                                    </div>
+                                    <p className="text-lg font-bold text-indigo-900">{result.clusterSize}</p>
+                                </div>
+                            )}
 
                             {/* Component Breakdown Chart */}
                             <div className="border rounded-lg p-4">
                                 <h3 className="font-semibold text-gray-800 mb-4 flex items-center">
                                     <Cpu className="w-4 h-4 mr-2 text-gray-500" />
-                                    Component Performance Breakdown
+                                    {isADF ? 'Activity' : 'Component'} Performance Breakdown
                                 </h3>
                                 <div className="space-y-3">
                                     {result.componentMetrics.map((metric) => (
@@ -142,12 +179,17 @@ export default function PerformanceModal({ isOpen, onClose }: PerformanceModalPr
                                                     {metric.componentName}
                                                     {metric.isBottleneck && <AlertTriangle className="w-3 h-3 ml-1" />}
                                                 </span>
-                                                <span className="text-gray-500">{formatDuration(metric.duration)}</span>
+                                                <div className="flex items-center space-x-2">
+                                                    <span className="text-gray-500">{formatDuration(metric.duration)}</span>
+                                                    {isADF && metric.activityExecutionCost !== undefined && (
+                                                        <span className="text-green-600 text-xs">{formatCost(metric.activityExecutionCost)}</span>
+                                                    )}
+                                                </div>
                                             </div>
                                             <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
                                                 <div
                                                     className={`h-2.5 rounded-full ${metric.isBottleneck ? 'bg-red-500' :
-                                                            metric.memoryImpact === 'High' ? 'bg-yellow-500' : 'bg-green-500'
+                                                        metric.memoryImpact === 'High' ? 'bg-yellow-500' : 'bg-green-500'
                                                         }`}
                                                     style={{ width: `${Math.min(100, (metric.duration / result.totalDuration) * 100)}%` }}
                                                 />
@@ -161,7 +203,7 @@ export default function PerformanceModal({ isOpen, onClose }: PerformanceModalPr
                             </div>
 
                             {/* Recommendations */}
-                            {result.memoryUsage > 1000 && (
+                            {!isADF && result.memoryUsage > 1000 && (
                                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start space-x-3">
                                     <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5" />
                                     <div>
@@ -169,6 +211,19 @@ export default function PerformanceModal({ isOpen, onClose }: PerformanceModalPr
                                         <p className="text-sm text-yellow-700 mt-1">
                                             This pipeline uses significant memory ({formatBytes(result.memoryUsage)}).
                                             Consider removing blocking transformations like Sort or Aggregate, or filtering data earlier in the source query.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {isADF && result.estimatedCost && result.estimatedCost > 1.0 && (
+                                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start space-x-3">
+                                    <DollarSign className="w-5 h-5 text-yellow-600 mt-0.5" />
+                                    <div>
+                                        <h4 className="font-semibold text-yellow-800 text-sm">Cost Optimization Tip</h4>
+                                        <p className="text-sm text-yellow-700 mt-1">
+                                            This pipeline execution is estimated at {formatCost(result.estimatedCost)}.
+                                            Consider using Time-to-Live (TTL) for Data Flows to reduce cold-start costs, and batch processing for Copy Data activities.
                                         </p>
                                     </div>
                                 </div>

@@ -1,4 +1,5 @@
-import { SSISComponent, Connection, ValidationResult } from './types';
+import { validateADFPipeline } from './adfValidationEngine';
+import { SSISComponent, Connection, ValidationResult, PlatformType, ADFComponent } from './types';
 
 // --- Helper: Check for Circular Dependency ---
 function hasCircularDependency(componentId: string, components: SSISComponent[], connections: Connection[]): boolean {
@@ -493,8 +494,8 @@ export function validateComponent(
 
     // NEW RULE 32: Best Practice - Hardcoded connection strings (check properties)
     const connectionString = component.properties?.connectionString;
-    if ((component.type === 'source' || component.type === 'destination') && 
-        typeof connectionString === 'string' && 
+    if ((component.type === 'source' || component.type === 'destination') &&
+        typeof connectionString === 'string' &&
         connectionString.includes('Data Source=')) {
         results.push({
             connectionId: component.id,
@@ -596,14 +597,14 @@ function validateGlobalBestPractices(
     connections: Connection[]
 ): ValidationResult[] {
     const results: ValidationResult[] = [];
-    
+
     // Filter to only data flow components (exclude control flow tasks)
-    const dataFlowComponents = components.filter(c => 
-        c.type === 'source' || 
-        c.type === 'transformation' || 
+    const dataFlowComponents = components.filter(c =>
+        c.type === 'source' ||
+        c.type === 'transformation' ||
         c.type === 'destination'
     );
-    
+
     // Don't show suggestions for empty canvas or very small pipelines
     if (dataFlowComponents.length < 3) {
         return results;
@@ -623,8 +624,8 @@ function validateGlobalBestPractices(
     }
 
     // RULE 33: Best Practice - Missing data validation
-    const hasValidation = dataFlowComponents.some(c => 
-        c.category === 'ConditionalSplit' || 
+    const hasValidation = dataFlowComponents.some(c =>
+        c.category === 'ConditionalSplit' ||
         (c.category === 'DerivedColumn' && typeof c.properties?.expression === 'string' && c.properties.expression.includes('ISNULL')) ||
         c.category === 'Lookup'
     );
@@ -640,15 +641,15 @@ function validateGlobalBestPractices(
     }
 
     // RULE 34: Best Practice - No incremental load strategy
-    const hasIncrementalPattern = dataFlowComponents.some(c => 
+    const hasIncrementalPattern = dataFlowComponents.some(c =>
         (c.category === 'Lookup' && c.referenceInput?.includes('last-load')) ||
         c.properties?.incrementalLoad === true
     );
     if (!hasIncrementalPattern) {
         const hasDateFilter = dataFlowComponents.some(c => {
             const query = c.properties?.query;
-            return typeof query === 'string' && 
-                query.includes('WHERE') && 
+            return typeof query === 'string' &&
+                query.includes('WHERE') &&
                 (query.includes('Date') || query.includes('Modified'));
         });
         if (!hasDateFilter) {
@@ -687,10 +688,10 @@ function validateGlobalBestPractices(
     }
 
     // RULE 38: Data Quality - No duplicate detection
-    const hasDeduplication = dataFlowComponents.some(c => 
-        c.category === 'Sort' && 
-        dataFlowComponents.some(comp => 
-            comp.category === 'Aggregate' && 
+    const hasDeduplication = dataFlowComponents.some(c =>
+        c.category === 'Sort' &&
+        dataFlowComponents.some(comp =>
+            comp.category === 'Aggregate' &&
             connections.some(conn => conn.source === c.id && conn.target === comp.id)
         )
     );
@@ -716,7 +717,7 @@ function validateGlobalBestPractices(
             });
             return !hasUpstreamFilter && sortInputs.length > 0;
         });
-        
+
         if (sortsWithoutFilter.length > 0) {
             results.push({
                 connectionId: 'global-rule-26',
@@ -731,16 +732,16 @@ function validateGlobalBestPractices(
 
     // RULE 30: Performance - Memory-intensive operations (consolidated)
     const memoryIntensiveOps = ['Aggregate', 'MergeJoin'];
-    const memoryIntensiveComponents = dataFlowComponents.filter(c => 
+    const memoryIntensiveComponents = dataFlowComponents.filter(c =>
         memoryIntensiveOps.includes(c.category)
     );
-    
+
     if (memoryIntensiveComponents.length > 0) {
         const componentsWithMultipleInputs = memoryIntensiveComponents.filter(comp => {
             const compInputs = connections.filter(c => c.target === comp.id);
             return compInputs.length > 1;
         });
-        
+
         if (componentsWithMultipleInputs.length > 0) {
             results.push({
                 connectionId: 'global-rule-30',
@@ -755,16 +756,16 @@ function validateGlobalBestPractices(
 
     // RULE 40: Best Practice - Missing error output configuration (only show once, not per component)
     const supportsErrorOutput = ['Lookup', 'OLEDBSource', 'OLEDBDestination', 'FlatFileSource', 'FlatFileDestination'];
-    const componentsNeedingErrorOutput = dataFlowComponents.filter(c => 
+    const componentsNeedingErrorOutput = dataFlowComponents.filter(c =>
         supportsErrorOutput.includes(c.category)
     );
-    
+
     if (componentsNeedingErrorOutput.length > 0) {
         const componentsWithoutErrorOutput = componentsNeedingErrorOutput.filter(comp => {
             const outputs = connections.filter(c => c.source === comp.id);
             return outputs.length <= 1; // No error output configured
         });
-        
+
         if (componentsWithoutErrorOutput.length > 0) {
             // Only show one warning, not one per component
             results.push({
@@ -783,8 +784,13 @@ function validateGlobalBestPractices(
 
 export function validateGraph(
     components: SSISComponent[],
-    connections: Connection[]
+    connections: Connection[],
+    platform: PlatformType = 'ssis'
 ): ValidationResult[] {
+    if (platform === 'adf') {
+        return validateADFPipeline(components as ADFComponent[], connections);
+    }
+
     let allResults: ValidationResult[] = [];
 
     // Validate all connections

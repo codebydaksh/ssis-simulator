@@ -1,4 +1,4 @@
-import { SSISComponent, Connection } from './types';
+import { SSISComponent, Connection, PlatformType } from './types';
 
 export interface SimulationResult {
     totalDuration: number; // in seconds
@@ -6,6 +6,11 @@ export interface SimulationResult {
     bottleneckComponentId: string | null;
     componentMetrics: ComponentMetric[];
     throughput: number; // rows per second
+    // ADF-specific metrics
+    estimatedDIUs?: number;
+    estimatedCost?: number; // in USD
+    clusterSize?: string;
+    platform: PlatformType;
 }
 
 export interface ComponentMetric {
@@ -15,6 +20,8 @@ export interface ComponentMetric {
     rowsProcessed: number;
     memoryImpact: 'Low' | 'Medium' | 'High';
     isBottleneck: boolean;
+    // ADF-specific
+    activityExecutionCost?: number; // in USD
 }
 
 // Base processing speeds (rows per second)
@@ -31,7 +38,37 @@ const SPEEDS = {
     MERGE_JOIN: 20000
 };
 
+// ADF Activity processing speeds and characteristics
+const ADF_SPEEDS = {
+    COPY_DATA: 50000, // rows per second with default DIUs
+    MAPPING_DATA_FLOW: 30000, // rows per second on medium cluster
+    WEB_ACTIVITY: 1, // Not row-based, but has latency
+    WAIT: 1, // Duration is configured
+    DATABRICKS: 80000, // Fast on optimized cluster
+    EXECUTE_PIPELINE: 0.5, // Overhead for launching child pipeline
+};
+
+// ADF Pricing (approximate, as of 2024)
+const ADF_PRICING = {
+    ORCHESTRATION_PER_1000_RUNS: 1.00, // USD per 1000 activity runs
+    DIU_HOUR: 0.25, // USD per DIU-hour for Copy Data
+    DATA_FLOW_VCORE_HOUR: 0.274, // USD per vCore-hour for Data Flow
+    PIPELINE_EXECUTION_PER_1000: 1.00, // USD per 1000 pipeline executions
+};
+
 export function simulatePerformance(
+    components: SSISComponent[],
+    connections: Connection[],
+    totalRows: number,
+    platform: PlatformType = 'ssis'
+): SimulationResult {
+    if (platform === 'adf') {
+        return simulateADFPerformance(components, connections, totalRows);
+    }
+    return simulateSSISPerformance(components, connections, totalRows);
+}
+
+function simulateSSISPerformance(
     components: SSISComponent[],
     connections: Connection[],
     totalRows: number
@@ -130,7 +167,161 @@ export function simulatePerformance(
         memoryUsage: Math.min(totalMemory, 16000), // Cap at 16GB
         bottleneckComponentId: slowestComponentId,
         componentMetrics: metrics,
-        throughput: totalRows / pipelineLatency
+        throughput: totalRows / pipelineLatency,
+        platform: 'ssis'
+    };
+}
+
+function simulateADFPerformance(
+    components: SSISComponent[],
+    connections: Connection[],
+    totalRows: number
+): SimulationResult {
+    const metrics: ComponentMetric[] = [];
+    let totalCost = 0;
+    let totalDIUs = 0;
+    let slowestComponentId: string | null = null;
+    let slowestDuration = 0;
+
+    components.forEach(comp => {
+        let speed = ADF_SPEEDS.COPY_DATA;
+        let memory: 'Low' | 'Medium' | 'High' = 'Low';
+        let rows = totalRows;
+        let activityCost = 0;
+        let duration = 0;
+
+        switch (comp.category) {
+            case 'CopyData':
+                // DIUs scale with data volume
+                const estimatedDIUs = Math.min(256, Math.max(4, Math.ceil(totalRows / 1000000)));
+                totalDIUs += estimatedDIUs;
+
+                // Speed increases with DIUs
+                speed = ADF_SPEEDS.COPY_DATA * (estimatedDIUs / 4);
+                duration = (rows / speed) + 2; // 2s overhead for setup
+
+                // Cost = DIU-hours
+                const durationHours = duration / 3600;
+                activityCost = estimatedDIUs * durationHours * ADF_PRICING.DIU_HOUR;
+                memory = 'Low';
+                break;
+
+            case 'MappingDataFlow':
+                // Data Flow uses Spark clusters
+                const vCores = Math.min(32, Math.max(8, Math.ceil(totalRows / 500000)));
+                speed = ADF_SPEEDS.MAPPING_DATA_FLOW * (vCores / 8);
+
+                // Include cluster startup time (3-5 minutes unless using TTL)
+                const startupTime = 180; // 3 minutes
+                const processingTime = (rows / speed);
+                duration = startupTime + processingTime;
+
+                const totalHours = duration / 3600;
+                activityCost = vCores * totalHours * ADF_PRICING.DATA_FLOW_VCORE_HOUR;
+                memory = 'High';
+                break;
+
+            case 'DatabricksNotebook':
+                speed = ADF_SPEEDS.DATABRICKS;
+                duration = (rows / speed) + 60; // 1 min cluster attach overhead
+                // Databricks has separate pricing, we'll approximate
+                activityCost = (duration / 3600) * 2.0; // Approximate DBU cost
+                memory = 'High';
+                break;
+
+            case 'WebActivity':
+                duration = 2; // 2 seconds average API call
+                activityCost = ADF_PRICING.ORCHESTRATION_PER_1000_RUNS / 1000;
+                memory = 'Low';
+                rows = 1; // Not row-based
+                break;
+
+            case 'Wait':
+                const props = (comp.properties || {}) as Record<string, any>;
+                duration = parseInt(String(props.waitTimeInSeconds || 1));
+                activityCost = 0; // Wait is free
+                memory = 'Low';
+                rows = 0;
+                break;
+
+            case 'ForEach':
+            case 'IfCondition':
+            case 'Switch':
+                duration = 1; // Orchestration overhead
+                activityCost = ADF_PRICING.ORCHESTRATION_PER_1000_RUNS / 1000;
+                memory = 'Low';
+                rows = 0;
+                break;
+
+            case 'ExecutePipeline':
+                duration = 5; // Child pipeline execution overhead
+                activityCost = (ADF_PRICING.ORCHESTRATION_PER_1000_RUNS / 1000) + (ADF_PRICING.PIPELINE_EXECUTION_PER_1000 / 1000);
+                memory = 'Low';
+                rows = 0;
+                break;
+
+            case 'SetVariable':
+            case 'GetMetadata':
+            case 'Validation':
+            case 'Filter':
+                duration = 0.5;
+                activityCost = ADF_PRICING.ORCHESTRATION_PER_1000_RUNS / 1000;
+                memory = 'Low';
+                rows = 0;
+                break;
+
+            default:
+                duration = 1;
+                activityCost = ADF_PRICING.ORCHESTRATION_PER_1000_RUNS / 1000;
+                memory = 'Low';
+        }
+
+        totalCost += activityCost;
+
+        if (duration > slowestDuration) {
+            slowestDuration = duration;
+            slowestComponentId = comp.id;
+        }
+
+        metrics.push({
+            componentId: comp.id,
+            componentName: comp.name,
+            duration,
+            rowsProcessed: rows,
+            memoryImpact: memory,
+            isBottleneck: false,
+            activityExecutionCost: activityCost
+        });
+    });
+
+    // Identify bottleneck
+    if (slowestComponentId) {
+        const bottleneck = metrics.find(m => m.componentId === slowestComponentId);
+        if (bottleneck) bottleneck.isBottleneck = true;
+    }
+
+    // ADF pipelines run activities sequentially unless explicitly parallel
+    // For simplicity, we sum all durations (pessimistic, sequential execution)
+    const totalDuration = metrics.reduce((sum, m) => sum + m.duration, 0);
+
+    // Determine cluster size recommendation
+    let clusterSize = 'Small (4-8 cores)';
+    if (totalRows > 10000000) {
+        clusterSize = 'Large (16-32 cores)';
+    } else if (totalRows > 1000000) {
+        clusterSize = 'Medium (8-16 cores)';
+    }
+
+    return {
+        totalDuration,
+        memoryUsage: 0, // ADF is serverless, memory is managed by the service
+        bottleneckComponentId: slowestComponentId,
+        componentMetrics: metrics,
+        throughput: totalRows > 0 ? totalRows / totalDuration : 0,
+        estimatedDIUs: totalDIUs || 4,
+        estimatedCost: totalCost,
+        clusterSize,
+        platform: 'adf'
     };
 }
 
@@ -147,4 +338,9 @@ export function formatDuration(seconds: number): string {
 export function formatBytes(mb: number): string {
     if (mb < 1024) return `${Math.round(mb)} MB`;
     return `${(mb / 1024).toFixed(2)} GB`;
+}
+
+export function formatCost(usd: number): string {
+    if (usd < 0.01) return `$${(usd * 100).toFixed(4)}c`;
+    return `$${usd.toFixed(4)}`;
 }

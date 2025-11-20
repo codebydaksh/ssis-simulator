@@ -18,6 +18,11 @@ export function generateSampleData(
 ): SampleRow[] {
     const sampleSize = 5; // Show 5 sample rows
 
+    // Generate data based on component type
+    if (component.type === 'data-movement' || component.type === 'control-flow' || component.type === 'transformation') {
+        return generateADFSampleData(component, upstreamData);
+    }
+
     // If we have upstream data, transform it based on component type
     if (upstreamData && upstreamData.length > 0) {
         return transformData(component, upstreamData, sampleSize);
@@ -25,6 +30,44 @@ export function generateSampleData(
 
     // Generate initial data for sources
     return generateSourceData(component, sampleSize);
+}
+
+function generateADFSampleData(component: SSISComponent, upstreamData?: SampleRow[]): SampleRow[] {
+    const count = 5;
+    // For ADF, we simulate data based on activity type
+    switch (component.category) {
+        case 'CopyData':
+            return [
+                { Source: 'Blob Storage', Destination: 'SQL Database', RowsCopied: 1000, Status: 'Succeeded' },
+                { Source: 'Blob Storage', Destination: 'SQL Database', RowsCopied: 2500, Status: 'Succeeded' },
+                { Source: 'Blob Storage', Destination: 'SQL Database', RowsCopied: 500, Status: 'Succeeded' }
+            ];
+        case 'MappingDataFlow':
+            return upstreamData ? upstreamData.map(r => ({ ...r, Transformed: true })) : [
+                { ID: 1, Value: 'Transformed Data 1' },
+                { ID: 2, Value: 'Transformed Data 2' }
+            ];
+        case 'WebActivity':
+            return [
+                { Response: '200 OK', Body: '{ "status": "success" }', Duration: '120ms' }
+            ];
+        case 'GetMetadata':
+            return [
+                { ItemName: 'file1.csv', ItemType: 'File', Size: 1024, LastModified: '2024-01-01' },
+                { ItemName: 'file2.csv', ItemType: 'File', Size: 2048, LastModified: '2024-01-02' }
+            ];
+        case 'ForEach':
+            return [
+                { Item: 'file1.csv', Index: 0 },
+                { Item: 'file2.csv', Index: 1 }
+            ];
+        case 'Wait':
+            return [
+                { Status: 'Waiting...', Duration: '5s' }
+            ];
+        default:
+            return [{ Status: 'Executed', Activity: component.name }];
+    }
 }
 
 function generateSourceData(component: SSISComponent, count: number): SampleRow[] {
@@ -238,7 +281,7 @@ export function generatePipelineDataPreview(
 
     // Start with sources
     components.forEach(comp => {
-        if (comp.type === 'source') {
+        if (comp.type === 'source' || comp.type === 'data-movement' || (comp.type === 'control-flow' && !connections.some(c => c.target === comp.id))) {
             queue.push(comp.id);
         }
     });

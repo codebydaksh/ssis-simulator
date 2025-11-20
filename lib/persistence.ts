@@ -8,22 +8,22 @@ export interface CanvasData {
     version: string;
 }
 
-export const saveToLocalStorage = (components: SSISComponent[], connections: Connection[]): void => {
+export const saveToLocalStorage = (components: SSISComponent[], connections: Connection[], key: string = STORAGE_KEY): void => {
     try {
         const data: CanvasData = {
             components,
             connections,
             version: '1.0.0'
         };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        localStorage.setItem(key, JSON.stringify(data));
     } catch (error) {
         console.error('Failed to save to localStorage:', error);
     }
 };
 
-export const loadFromLocalStorage = (): CanvasData | null => {
+export const loadFromLocalStorage = (key: string = STORAGE_KEY): CanvasData | null => {
     try {
-        const stored = localStorage.getItem(STORAGE_KEY);
+        const stored = localStorage.getItem(key);
         if (!stored) return null;
 
         const data = JSON.parse(stored) as CanvasData;
@@ -34,9 +34,9 @@ export const loadFromLocalStorage = (): CanvasData | null => {
     }
 };
 
-export const clearLocalStorage = (): void => {
+export const clearLocalStorage = (key: string = STORAGE_KEY): void => {
     try {
-        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(key);
     } catch (error) {
         console.error('Failed to clear localStorage:', error);
     }

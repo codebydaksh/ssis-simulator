@@ -26,20 +26,26 @@ import TransformNode from '@/components/ssis/TransformNode';
 import DestinationNode from '@/components/ssis/DestinationNode';
 import ControlFlowTaskNode from '@/components/ssis/ControlFlowTaskNode';
 import ConnectionEdge from '@/components/ssis/ConnectionEdge';
-import { SSISComponent, Connection } from '@/lib/types';
+import { SSISComponent, Connection, ComponentType } from '@/lib/types';
 import { getComponentDefinition } from '@/lib/componentDefinitions';
 import { getFlowHighlights } from '@/lib/validationEngine';
+import { getADFComponentDefinition } from '@/lib/adfComponentDefinitions';
 import { v4 as uuidv4 } from 'uuid';
+
+import ADFComponentNode from '@/components/adf/ADFComponentNode';
+import ADFConnectionEdge from '@/components/adf/ADFConnectionEdge';
 
 const nodeTypes: NodeTypes = {
     source: SourceNode,
     transformation: TransformNode,
     destination: DestinationNode,
     'control-flow-task': ControlFlowTaskNode,
+    'adf-node': ADFComponentNode,
 };
 
 const edgeTypes: EdgeTypes = {
     default: ConnectionEdge,
+    'adf-edge': ADFConnectionEdge,
 };
 
 const CanvasContent = () => {
@@ -60,9 +66,11 @@ const CanvasContent = () => {
         components,
         connections,
         currentDataFlowTaskId,
+        platform,
     } = useCanvasStore();
-
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const currentComponents = useMemo(() => getCurrentComponents(), [getCurrentComponents, components, viewMode, currentDataFlowTaskId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const currentConnections = useMemo(() => getCurrentConnections(), [getCurrentConnections, connections, viewMode, currentDataFlowTaskId]);
 
     const highlights = useMemo(() => {
@@ -82,12 +90,12 @@ const CanvasContent = () => {
 
         return {
             id: c.id,
-            type: c.type,
+            type: platform === 'adf' ? 'adf-node' : c.type,
             position: c.position,
             measured: c.measured,
             data: { ...c, highlightStatus },
         };
-    }), [currentComponents, highlights, selectedComponent]);
+    }), [currentComponents, highlights, selectedComponent, platform]);
 
     const edges: Edge<Connection>[] = useMemo(() => currentConnections.map((c) => ({
         id: c.id,
@@ -95,10 +103,10 @@ const CanvasContent = () => {
         target: c.target,
         sourceHandle: c.sourceHandle,
         targetHandle: c.targetHandle,
-        type: 'default',
+        type: platform === 'adf' ? 'adf-edge' : 'default',
         data: c,
         animated: !c.isValid,
-    })), [currentConnections]);
+    })), [currentConnections, platform]);
 
     const onNodesChange: OnNodesChange = useCallback(
         (changes: NodeChange[]) => {
@@ -167,11 +175,13 @@ const CanvasContent = () => {
                 y: event.clientY,
             });
 
-            const definition = getComponentDefinition(category);
+            const definition = platform === 'adf'
+                ? getADFComponentDefinition(category)
+                : getComponentDefinition(category);
 
             const newComponent: SSISComponent = {
                 id: uuidv4(),
-                type: type as 'source' | 'transformation' | 'destination' | 'control-flow-task',
+                type: type as ComponentType, // Allow both SSIS and ADF types
                 category: category,
                 name: definition?.name || category,
                 icon: definition?.icon || '',
@@ -182,11 +192,17 @@ const CanvasContent = () => {
                 inputs: [],
                 outputs: [],
                 hasError: false,
+                // Initialize ADF specific properties if needed
+                ...(platform === 'adf' ? {
+                    linkedService: '',
+                    integrationRuntime: 'AutoResolveIntegrationRuntime',
+                    policy: { retry: 0, timeout: '7.00:00:00' }
+                } : {})
             };
 
             addComponent(newComponent);
         },
-        [addComponent, screenToFlowPosition]
+        [addComponent, screenToFlowPosition, platform]
     );
 
     const onNodeDoubleClick = useCallback(

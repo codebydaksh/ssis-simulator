@@ -12,12 +12,14 @@ import DataPreviewModal from '@/components/canvas/DataPreviewModal';
 import ComponentComparisonModal from '@/components/canvas/ComponentComparisonModal';
 import TutorialSelector from '@/components/canvas/TutorialSelector';
 import { useCanvasStore } from '@/store/canvasStore';
-import { Download, Upload, Trash2, Save, Undo, Redo, Activity, Moon, Sun, Share2, Eye, GitCompare, Workflow, Database, ArrowLeft } from 'lucide-react';
+import { Download, Upload, Trash2, Save, Undo, Redo, Activity, Moon, Sun, Share2, Eye, GitCompare, Workflow, Database, ArrowLeft, Cloud } from 'lucide-react';
 import { useTheme } from '@/lib/themeContext';
 import { encodePipelineToURL, copyToClipboard } from '@/lib/shareableLinks';
 
 export default function CanvasPage() {
     const {
+        platform,
+        setPlatform,
         loadFromStorage,
         loadFromURL,
         saveToStorage,
@@ -50,7 +52,7 @@ export default function CanvasPage() {
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
         const hasPipelineParam = urlParams.has('pipeline');
-        
+
         if (hasPipelineParam) {
             loadFromURL();
         } else {
@@ -160,7 +162,7 @@ export default function CanvasPage() {
         try {
             const shareUrl = encodePipelineToURL(allComponents, connections);
             await copyToClipboard(shareUrl);
-            
+
             const notification = document.createElement('div');
             notification.textContent = 'Shareable link copied to clipboard!';
             notification.className = 'fixed top-16 right-4 bg-blue-600 text-white px-4 py-2 rounded shadow-lg z-50';
@@ -186,13 +188,39 @@ export default function CanvasPage() {
                 style={{ display: 'none' }}
             />
 
-            <header className="h-12 bg-gray-900 dark:bg-gray-800 text-white flex items-center justify-between px-4 shadow-md z-10">
+            <header className="min-h-12 bg-gray-900 dark:bg-gray-800 text-white flex flex-wrap items-center justify-between px-3 py-2 gap-2 shadow-md z-10">
                 <div className="flex items-center space-x-4">
                     <div className="flex items-center space-x-2">
                         <span className="font-bold text-lg">SSIS Simulator</span>
                         <span className="text-xs bg-blue-600 px-2 py-0.5 rounded">Beta</span>
                     </div>
-                    
+
+                    {/* Platform Switcher */}
+                    <div className="flex items-center space-x-1 bg-gray-700 rounded p-1">
+                        <button
+                            onClick={() => setPlatform('ssis')}
+                            className={`flex items-center space-x-1 px-3 py-1 rounded text-xs transition-colors ${platform === 'ssis'
+                                ? 'bg-blue-600 text-white'
+                                : 'text-gray-300 hover:text-white'
+                                }`}
+                            title="Switch to SSIS Mode"
+                        >
+                            <Database className="w-3 h-3" />
+                            <span>SSIS</span>
+                        </button>
+                        <button
+                            onClick={() => setPlatform('adf')}
+                            className={`flex items-center space-x-1 px-3 py-1 rounded text-xs transition-colors ${platform === 'adf'
+                                ? 'bg-teal-600 text-white'
+                                : 'text-gray-300 hover:text-white'
+                                }`}
+                            title="Switch to Azure Data Factory Mode"
+                        >
+                            <Cloud className="w-3 h-3" />
+                            <span>ADF</span>
+                        </button>
+                    </div>
+
                     {/* Breadcrumb */}
                     {currentDataFlowTaskId && (
                         <div className="flex items-center space-x-2 text-sm">
@@ -209,17 +237,16 @@ export default function CanvasPage() {
                             </span>
                         </div>
                     )}
-                    
+
                     {/* View Mode Toggle */}
                     {!currentDataFlowTaskId && (
                         <div className="flex items-center space-x-1 bg-gray-700 rounded p-1">
                             <button
                                 onClick={() => setViewMode('control-flow')}
-                                className={`flex items-center space-x-1 px-3 py-1 rounded text-xs transition-colors ${
-                                    viewMode === 'control-flow'
-                                        ? 'bg-orange-600 text-white'
-                                        : 'text-gray-300 hover:text-white'
-                                }`}
+                                className={`flex items-center space-x-1 px-3 py-1 rounded text-xs transition-colors ${viewMode === 'control-flow'
+                                    ? 'bg-orange-600 text-white'
+                                    : 'text-gray-300 hover:text-white'
+                                    }`}
                                 title="Control Flow View"
                             >
                                 <Workflow className="w-3 h-3" />
@@ -227,11 +254,10 @@ export default function CanvasPage() {
                             </button>
                             <button
                                 onClick={() => setViewMode('data-flow')}
-                                className={`flex items-center space-x-1 px-3 py-1 rounded text-xs transition-colors ${
-                                    viewMode === 'data-flow'
-                                        ? 'bg-blue-600 text-white'
-                                        : 'text-gray-300 hover:text-white'
-                                }`}
+                                className={`flex items-center space-x-1 px-3 py-1 rounded text-xs transition-colors ${viewMode === 'data-flow'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'text-gray-300 hover:text-white'
+                                    }`}
                                 title="Data Flow View"
                             >
                                 <Database className="w-3 h-3" />
